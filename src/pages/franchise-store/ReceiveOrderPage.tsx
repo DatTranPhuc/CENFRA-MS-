@@ -1,5 +1,3 @@
-import React from 'react';
-
 const ReceiveOrderPage = () => {
   return <div>ReceiveOrderPage</div>;
 };

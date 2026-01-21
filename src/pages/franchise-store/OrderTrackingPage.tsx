@@ -1,5 +1,3 @@
-import React from 'react';
-
 const OrderTrackingPage = () => {
   return <div>OrderTrackingPage</div>;
 };
