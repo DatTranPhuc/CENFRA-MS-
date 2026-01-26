@@ -1,66 +1,106 @@
 @import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Giữ nguyên cấu trúc Font và Typography */
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
 
+  /* Giữ nguyên logic rendering */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* --- CẤU HÌNH BIẾN MÀU (Đã fix để Light Mode không bị đen) --- */
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+
+  --background: oklch(0.99 0.01 210); /* Trắng xanh sạch sẽ */
+  --foreground: oklch(0.129 0.042 210);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.129 0.042 210);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.129 0.042 210);
+
+  --primary: oklch(0.45 0.15 210); /* Xanh quản lý */
+  --primary-foreground: oklch(0.984 0.003 210);
+
+  --secondary: oklch(0.968 0.007 210);
+  --secondary-foreground: oklch(0.208 0.042 210);
+
+  --muted: oklch(0.968 0.007 210);
+  --muted-foreground: oklch(0.554 0.046 210);
+
+  --accent: oklch(0.75 0.18 45); /* Cam hành động (Order/Ship) */
+  --accent-foreground: oklch(0.208 0.042 45);
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --border: oklch(0.929 0.013 210);
+  --input: oklch(0.929 0.013 210);
+  --ring: oklch(0.704 0.04 210);
+
+  /* Giữ nguyên Chart và Sidebar variables */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+
+  --sidebar: oklch(0.984 0.003 210);
+  --sidebar-foreground: oklch(0.129 0.042 210);
+  --sidebar-primary: oklch(0.208 0.042 210);
+  --sidebar-primary-foreground: oklch(0.984 0.003 210);
+  --sidebar-accent: oklch(0.968 0.007 210);
+  --sidebar-accent-foreground: oklch(0.208 0.042 210);
+  --sidebar-border: oklch(0.929 0.013 210);
+  --sidebar-ring: oklch(0.704 0.04 210);
 }
 
+.dark {
+  /* Nền tối xanh đậm sâu, không phải màu đen tuyền để tránh mỏi mắt */
+  --background: oklch(0.15 0.02 210);
+  --foreground: oklch(0.95 0.01 210);
+
+  /* Card và Popover sáng hơn nền một chút để tạo chiều sâu (Elevation) */
+  --card: oklch(0.2 0.03 210);
+  --card-foreground: oklch(0.95 0.01 210);
+  --popover: oklch(0.2 0.03 210);
+  --popover-foreground: oklch(0.95 0.01 210);
+
+  /* Màu chính sẽ sáng lên một chút để nổi bật trên nền tối */
+  --primary: oklch(0.65 0.12 210);
+  --primary-foreground: oklch(0.1 0.02 210);
+
+  --secondary: oklch(0.25 0.03 210);
+  --secondary-foreground: oklch(0.95 0.01 210);
+
+  --muted: oklch(0.25 0.03 210);
+  --muted-foreground: oklch(0.7 0.02 210);
+
+  /* Màu cam Accent vẫn giữ độ rực để nhấn mạnh */
+  --accent: oklch(0.75 0.18 45);
+  --accent-foreground: oklch(0.1 0.02 45);
+
+  /* Border trong dark mode nên mờ và mảnh hơn */
+  --border: oklch(0.3 0.03 210 / 0.5);
+  --input: oklch(0.3 0.03 210 / 0.5);
+  --ring: oklch(0.65 0.12 210);
+
+  /* Sidebar trong Dark Mode */
+  --sidebar: oklch(0.18 0.03 210);
+  --sidebar-foreground: oklch(0.95 0.01 210);
+  --sidebar-primary: oklch(0.65 0.12 210);
+  --sidebar-border: oklch(0.3 0.03 210 / 0.5);
+}
+
+/* Giữ nguyên các định nghĩa cho Link và Headings của bạn */
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--primary);
   text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
 }
 
 h1 {
@@ -68,39 +108,8 @@ h1 {
   line-height: 1.1;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
-
 @theme inline {
+  /* Giữ nguyên cấu trúc Theme v4 của bạn */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -108,6 +117,7 @@ button:focus-visible {
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -141,45 +151,14 @@ button:focus-visible {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
   }
 }
