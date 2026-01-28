@@ -1,15 +1,16 @@
 import React from 'react';
 type Props = {
   admin: React.ReactNode;
-  store: React.ReactNode;
+  franchise: React.ReactNode;
+  manager: React.ReactNode;
 };
 
-const RoleRoute = ({ admin, store }: Props) => {
+const RoleRoute = ({ admin, franchise, manager }: Props) => {
   const role = localStorage.getItem('role');
 
   if (role === 'ADMIN') return admin;
-  if (role === 'STORE') return store;
-
+  if (role === 'FRANCHISE') return franchise;
+  if (role === 'MANAGER') return manager;
   return <div>Không có quyền truy cập</div>;
 };
 
