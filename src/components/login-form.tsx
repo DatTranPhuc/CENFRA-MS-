@@ -3,17 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { authService } from '@/services/authService';
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // Handle form submission logic
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const username = formData.get('username') as string;
-    const password = formData.get('password') as string;
-    const res = authService.signIn(username, password);
   };
 
   return (
