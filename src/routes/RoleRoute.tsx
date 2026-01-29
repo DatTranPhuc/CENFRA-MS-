@@ -6,7 +6,7 @@ type Props = {
 };
 
 const RoleRoute = ({ admin, franchise, manager }: Props) => {
-  const role = localStorage.getItem('role');
+  const role = localStorage.getItem('userRole');
 
   if (role === 'ADMIN') return admin;
   if (role === 'FRANCHISE') return franchise;
