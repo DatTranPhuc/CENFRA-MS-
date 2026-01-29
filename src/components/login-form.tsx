@@ -3,11 +3,39 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { useState } from 'react';
+import { authService } from '@/services/authService';
+import { useNavigate } from 'react-router';
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const [error, setError] = useState<string | null>(null); // Hook để quản lí lỗi
+  const [isLoading, setIsLoading] = useState(false); // Hook để quản lí trạng thái đang loading
+  const navigate = useNavigate(); // hook để điều hướng
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // Handle form submission logic
+    setError(null); // Reset lỗi trước khi submit
+    setIsLoading(true); // Bắt đầu trạng thái loading
+    try {
+      const formData = new FormData(event.currentTarget);
+      const username = formData.get('username') as string;
+      const password = formData.get('password') as string;
+
+      const response = await authService.signIn(username, password);
+
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('userRole', response.role.roleName);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      navigate('/', { replace: true });
+      console.log('Đăng nhập thành công:', response);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Đăng nhập thất bại. Vui lòng thử lại.');
+    } finally {
+      // Bước 3.8: Luôn chạy dù thành công hay thất bại
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -34,11 +62,15 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                 <Input id="password" type="password" name="password" required />
               </Field>
               <Field>
-                <Button type="submit">Login</Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? 'Đang đăng nhập...' : 'Login'}
+                </Button>
                 <FieldDescription className="text-center">
                   {/* Don&apos;t have an account? <a href="#">Sign up</a> */}
                 </FieldDescription>
               </Field>
+              {/* Hiển thị error nếu có */}
+              {error && <div className="error-message">{error}</div>}
             </FieldGroup>
           </form>
         </CardContent>
