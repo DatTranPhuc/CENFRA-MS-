@@ -1,4 +1,3 @@
-import api from '@/lib/axios';
 import { mockAuthService } from './mockAuthService';
 import type { LoginResponse } from '@/Types/LoginResponse';
 
