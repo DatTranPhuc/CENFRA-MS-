@@ -1,4 +1,1 @@
-export interface Role {
-  roleID: string;
-  roleName: string;
-}
+export type Role = 'ADMIN' | 'FRANCHISE_STORE_STAFF' | 'MANAGER' | 'SUPPLY_COORDINATOR' | 'CENTRAL_KITCHEN_STAFF';

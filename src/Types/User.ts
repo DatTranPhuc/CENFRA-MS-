@@ -1,12 +1,10 @@
-import type { Location } from './Location';
-import type { Role } from './Role';
-
+import { type Role } from './Role';
 export interface User {
-  userId: string;
-  userFullName: string;
-  userRoleId: Role;
-  userLocationID: Location;
-  userEmail: string;
-  createdAt: Date;
+  id: number;
+  username: string;
+  password: string;
+  fullName: string;
+  email: string;
   isActive: boolean;
+  roles: Role[];
 }
