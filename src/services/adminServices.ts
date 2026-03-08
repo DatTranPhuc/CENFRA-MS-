@@ -1,12 +1,23 @@
 import http from '@/lib/axios';
-import type { PaginatedResponse } from '@/Types/utils.type';
+import type { Role } from '@/Types';
+import type { PaginatedResponse, Response } from '@/Types/utils.type';
 
 export interface UserResponse {
   userId: number;
   username: string;
   fullName: string;
   email: string;
-  role: string;
+  role: Role;
+  storeId: number;
+  storeName: string;
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
+export interface StoreResponse {
+  storeId: number;
+  storeName: string;
+  address: string;
+  phone: string;
   isActive: boolean;
 }
 
@@ -18,7 +29,7 @@ export const adminService = {
    * @returns PaginatedResponse chứa danh sách UserResponse
    */
   getAllUsers: async (page: number = 0, size: number = 10) => {
-    return await http.get<PaginatedResponse<UserResponse[]>>('/admin/users', {
+    return await http.get<Response<PaginatedResponse<UserResponse[]>>>('/admin/users', {
       params: { page, size },
     });
   },
@@ -52,5 +63,21 @@ export const adminService = {
   // Xóa tài khoản
   deleteAccount: async (id: number) => {
     return await http.delete(`/admin/users/${id}/active`);
+  },
+
+  // lấy ra tất cả các cửa hàng
+  getAllStores: async (page: number = 0, size: number = 10) => {
+    return await http.get<Response<PaginatedResponse<StoreResponse[]>>>('/admin/stores', {
+      params: { page, size },
+    });
+  },
+  createStore: async (body: {
+    storeName: string;
+    address: string;
+    phone: string;
+    managerUserId: number;
+    isActive: boolean;
+  }) => {
+    return await http.post('/admin/stores', body);
   },
 };
