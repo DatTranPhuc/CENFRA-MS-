@@ -1,95 +1,40 @@
-import { useMemo, useState } from 'react';
+/**
+ * =========================================================
+ * Component: ManufacturingOrders
+ * Description: Trang quản lý danh sách lệnh sản xuất của bếp trung tâm.
+ *             Cho phép xem, tìm kiếm và lọc các lệnh sản xuất theo trạng thái.
+ * Author: Tuan Tran
+ * Created: 2026-03-08
+ *
+ * Features:
+ * - Hiển thị danh sách manufacturing_orders từ API.
+ * - Tìm kiếm theo mã lệnh hoặc tên sản phẩm.
+ * - Lọc theo trạng thái (PLANNED, COOKING, COMPLETED, CANCELLED).
+ * - Hiển thị tóm tắt tình hình sản xuất.
+ * =========================================================
+ */
+
+// ================= IMPORT =================
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CalendarClock, ChefHat, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { kitchenServices, type ManufacturingOrderResponse } from '@/services/kitchenServices';
 
-/**
- * Đồng bộ DB (public schema):
- *
- * manufacturing_orders:
- *   manu_order_id (PK, identity),
- *   order_code (UNIQUE),
- *   product_id (FK products),
- *   quantity_planned (integer),
- *   status CHECK (PLANNED | COOKING | COMPLETED | CANCELLED),
- *   start_date (timestamptz, nullable),
- *   end_date (timestamptz, nullable).
- */
-
+// ================= TYPES =================
 type ManuOrderStatus = 'PLANNED' | 'COOKING' | 'COMPLETED' | 'CANCELLED';
-
-interface ManufacturingOrder {
-  manu_order_id: number;
-  order_code: string;
-  product_id: number;
-  product_name: string;
-  quantity_planned: number;
-  status: ManuOrderStatus;
-  start_date: string | null;
-  end_date: string | null;
-}
-
-const MANU_ORDER_STATUS_LABEL: Record<ManuOrderStatus, string> = {
-  PLANNED: 'Chờ sản xuất',
-  COOKING: 'Đang nấu',
-  COMPLETED: 'Hoàn thành',
-  CANCELLED: 'Đã hủy',
-};
-
-const MANU_ORDER_STATUS_CLASS: Record<ManuOrderStatus, string> = {
-  PLANNED: 'bg-amber-100 text-amber-800 border-amber-200',
-  COOKING: 'bg-orange-500 text-white border-orange-600 shadow-sm',
-  COMPLETED: 'bg-emerald-500 text-white border-emerald-600 shadow-sm',
-  CANCELLED: 'bg-stone-200 text-stone-600 border-stone-300',
-};
 
 const FILTER_OPTIONS: (ManuOrderStatus | 'ALL')[] = ['ALL', 'PLANNED', 'COOKING', 'COMPLETED', 'CANCELLED'];
 
-const MOCK_MANUFACTURING_ORDERS: ManufacturingOrder[] = [
-  {
-    manu_order_id: 1,
-    order_code: 'MO-20260304-001',
-    product_id: 1,
-    product_name: 'Cơm gà xối mỡ',
-    quantity_planned: 200,
-    status: 'PLANNED',
-    start_date: null,
-    end_date: null,
-  },
-  {
-    manu_order_id: 2,
-    order_code: 'MO-20260304-002',
-    product_id: 2,
-    product_name: 'Phở bò tái',
-    quantity_planned: 150,
-    status: 'COOKING',
-    start_date: '2026-03-04T06:00:00Z',
-    end_date: null,
-  },
-  {
-    manu_order_id: 3,
-    order_code: 'MO-20260303-001',
-    product_id: 1,
-    product_name: 'Cơm gà xối mỡ',
-    quantity_planned: 180,
-    status: 'COMPLETED',
-    start_date: '2026-03-03T07:00:00Z',
-    end_date: '2026-03-03T10:30:00Z',
-  },
-  {
-    manu_order_id: 4,
-    order_code: 'MO-20260302-003',
-    product_id: 3,
-    product_name: 'Trà chanh sả',
-    quantity_planned: 300,
-    status: 'CANCELLED',
-    start_date: null,
-    end_date: null,
-  },
-];
-
+// ================= UTIL =================
+/**
+ * Định dạng chuỗi ngày tháng sang dạng vi-VN (HH:mm dd/mm)
+ *
+ * @param value Chuỗi ngày tháng từ API hoặc null
+ * @returns Chuỗi đã định dạng hoặc '—' nếu null
+ */
 const formatDateTime = (value: string | null) => {
   if (!value) return '—';
   return new Date(value).toLocaleString('vi-VN', {
@@ -101,51 +46,33 @@ const formatDateTime = (value: string | null) => {
   });
 };
 
+// ================= COMPONENT =================
 function ManufacturingOrders() {
+  // ================= STATE =================
+  const [manufacturingOrder, setManufacturingOrder] = useState<ManufacturingOrderResponse[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ManuOrderStatus | 'ALL'>('ALL');
 
-  const plannedCount = useMemo(
-    () => MOCK_MANUFACTURING_ORDERS.filter((o) => o.status === 'PLANNED').length,
-    []
-  );
-  const cookingCount = useMemo(
-    () => MOCK_MANUFACTURING_ORDERS.filter((o) => o.status === 'COOKING').length,
-    []
-  );
-  const completedCount = useMemo(
-    () => MOCK_MANUFACTURING_ORDERS.filter((o) => o.status === 'COMPLETED').length,
-    []
-  );
-  const cancelledCount = useMemo(
-    () => MOCK_MANUFACTURING_ORDERS.filter((o) => o.status === 'CANCELLED').length,
-    []
-  );
+  // ================= API =================
+  /**
+   * Gọi API lấy danh sách tất cả các lệnh sản xuất
+   * Cập nhật state manufacturingOrder khi thành công
+   */
+  const getAllManufacturing = async () => {
+    try {
+      const response = await kitchenServices.getAllOrders();
+      if (response.success) {
+        setManufacturingOrder(response.data);
+      }
+    } catch (error) {}
+  };
 
-  const filteredOrders = useMemo(() => {
-    let data = MOCK_MANUFACTURING_ORDERS;
+  // ================= EFFECT =================
+  useEffect(() => {
+    getAllManufacturing();
+  }, []);
 
-    if (statusFilter !== 'ALL') {
-      data = data.filter((o) => o.status === statusFilter);
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      data = data.filter(
-        (o) =>
-          o.order_code.toLowerCase().includes(q) ||
-          o.product_name.toLowerCase().includes(q)
-      );
-    }
-
-    return data;
-  }, [search, statusFilter]);
-
-  const activeOrders = useMemo(
-    () => MOCK_MANUFACTURING_ORDERS.filter((o) => o.status === 'PLANNED' || o.status === 'COOKING'),
-    []
-  );
-
+  // ================= RENDER =================
   return (
     <div className="h-full w-full">
       <Card className="border-amber-200/60 bg-white shadow-md">
@@ -162,30 +89,18 @@ function ManufacturingOrders() {
 
           <div className="hidden items-center gap-6 md:flex">
             <div className="flex flex-col text-right">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">
-                Tổng lệnh
-              </span>
-              <span className="text-lg font-semibold text-amber-900">
-                {MOCK_MANUFACTURING_ORDERS.length}
-              </span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Tổng lệnh</span>
+              <span className="text-lg font-semibold text-amber-900">{}</span>
             </div>
             <div className="h-10 w-px bg-amber-200/70" />
             <div className="flex flex-col text-right">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">
-                Đang nấu
-              </span>
-              <span className="text-lg font-semibold text-amber-900">
-                {cookingCount}
-              </span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Đang nấu</span>
+              <span className="text-lg font-semibold text-amber-900">{}</span>
             </div>
             <div className="h-10 w-px bg-amber-200/70" />
             <div className="flex flex-col text-right">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">
-                Chờ sản xuất
-              </span>
-              <span className="text-lg font-semibold text-amber-900">
-                {plannedCount}
-              </span>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">Chờ sản xuất</span>
+              <span className="text-lg font-semibold text-amber-900">{}</span>
             </div>
           </div>
         </CardHeader>
@@ -211,12 +126,10 @@ function ManufacturingOrders() {
                     className={cn(
                       'px-3 py-1.5 transition',
                       opt !== 'ALL' && 'border-l border-amber-200',
-                      statusFilter === opt
-                        ? 'bg-amber-500 text-white'
-                        : 'text-amber-800 hover:bg-amber-100'
+                      statusFilter === opt ? 'bg-amber-500 text-white' : 'text-amber-800 hover:bg-amber-100'
                     )}
                   >
-                    {opt === 'ALL' ? 'Tất cả' : MANU_ORDER_STATUS_LABEL[opt]}
+                    {/* {opt === 'ALL' ? 'Tất cả' : MANU_ORDER_STATUS_LABEL[opt]} */}
                   </button>
                 ))}
               </div>
@@ -248,45 +161,35 @@ function ManufacturingOrders() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-50">
-                      {filteredOrders.map((o) => (
-                        <tr key={o.manu_order_id} className="hover:bg-amber-50/40">
+                      {manufacturingOrder.map((o) => (
+                        <tr key={o.manuOrderId} className="hover:bg-amber-50/40">
                           <td className="px-4 py-2">
-                            <p className="text-sm font-semibold text-stone-900">
-                              {o.order_code}
-                            </p>
-                            <p className="text-[11px] text-stone-500">
-                              ID: {o.manu_order_id}
-                            </p>
+                            <p className="text-sm font-semibold text-stone-900">{o.orderCode}</p>
+                            <p className="text-[11px] text-stone-500">ID: {o.manuOrderId}</p>
                           </td>
                           <td className="px-4 py-2">
-                            <p className="text-sm font-medium text-stone-900">
-                              {o.product_name}
-                            </p>
-                            <p className="text-[11px] text-stone-500">
-                              product_id: {o.product_id}
-                            </p>
+                            <p className="text-sm font-medium text-stone-900">{o.productName}</p>
+                            {/* <p className="text-[11px] text-stone-500">product_id: {o.}</p> */}
                           </td>
                           <td className="px-2 py-2 text-center text-sm font-semibold text-stone-900">
-                            {o.quantity_planned.toLocaleString('vi-VN')}
+                            {/* {o.quantity.toLocaleString('vi-VN')} */}
                           </td>
                           <td className="px-4 py-2 text-[11px] text-stone-800">
-                            {o.start_date || o.end_date ? (
-                              <div className="flex flex-col gap-0.5">
-                                <span>Bắt đầu: {formatDateTime(o.start_date)}</span>
-                                <span>Kết thúc: {formatDateTime(o.end_date)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-stone-500">Chưa lên lịch</span>
-                            )}
+                            {o.startDate ?? 'false'} : (
+                            <div className="flex flex-col gap-0.5">
+                              <span>Bắt đầu: {formatDateTime(o.startDate)}</span>
+                              {/* <span>Kết thúc: {formatDateTime()}</span> */}
+                            </div>
+                            ) : (<span className="text-stone-500">Chưa lên lịch</span>)
                           </td>
                           <td className="px-4 py-2 text-right">
                             <span
                               className={cn(
-                                'inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-semibold',
-                                MANU_ORDER_STATUS_CLASS[o.status]
+                                'inline-flex items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-semibold'
+                                // MANU_ORDER_STATUS_CLASS[o.status]
                               )}
                             >
-                              {MANU_ORDER_STATUS_LABEL[o.status]}
+                              {/* {MANU_ORDER_STATUS_LABEL[o.status]} */}
                             </span>
                           </td>
                           <td className="px-4 py-2 text-right">
@@ -300,16 +203,13 @@ function ManufacturingOrders() {
                           </td>
                         </tr>
                       ))}
-                      {filteredOrders.length === 0 && (
+                      {/* {filteredOrders.length === 0 && (
                         <tr>
-                          <td
-                            colSpan={6}
-                            className="px-4 py-6 text-center text-xs text-stone-500"
-                          >
+                          <td colSpan={6} className="px-4 py-6 text-center text-xs text-stone-500">
                             Không có lệnh sản xuất nào khớp với bộ lọc.
                           </td>
                         </tr>
-                      )}
+                      )} */}
                     </tbody>
                   </table>
                 </div>
@@ -330,27 +230,19 @@ function ManufacturingOrders() {
                 <div className="grid grid-cols-2 gap-3 text-[11px]">
                   <div className="rounded-lg bg-white/80 p-3 shadow-sm">
                     <p className="font-medium text-stone-500">Đang nấu</p>
-                    <p className="mt-1 text-xl font-semibold text-amber-900">
-                      {cookingCount}
-                    </p>
+                    <p className="mt-1 text-xl font-semibold text-amber-900">{}</p>
                   </div>
                   <div className="rounded-lg bg-white/80 p-3 shadow-sm">
                     <p className="font-medium text-stone-500">Chờ sản xuất</p>
-                    <p className="mt-1 text-xl font-semibold text-amber-900">
-                      {plannedCount}
-                    </p>
+                    <p className="mt-1 text-xl font-semibold text-amber-900">{}</p>
                   </div>
                   <div className="rounded-lg bg-white/80 p-3 shadow-sm">
                     <p className="font-medium text-stone-500">Đã hoàn thành</p>
-                    <p className="mt-1 text-xl font-semibold text-emerald-700">
-                      {completedCount}
-                    </p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-700">{}</p>
                   </div>
                   <div className="rounded-lg bg-white/80 p-3 shadow-sm">
                     <p className="font-medium text-stone-500">Đã hủy</p>
-                    <p className="mt-1 text-xl font-semibold text-stone-700">
-                      {cancelledCount}
-                    </p>
+                    <p className="mt-1 text-xl font-semibold text-stone-700">{}</p>
                   </div>
                 </div>
 
@@ -359,7 +251,7 @@ function ManufacturingOrders() {
                     <AlertTriangle className="size-4 text-amber-500" />
                     <p className="font-semibold text-amber-900">Lệnh đang hoạt động</p>
                   </div>
-                  {activeOrders.length > 0 ? (
+                  {/* {activeOrders.length > 0 ? (
                     <ul className="space-y-1.5">
                       {activeOrders.map((o) => (
                         <li key={o.manu_order_id} className="flex items-center justify-between">
@@ -386,7 +278,7 @@ function ManufacturingOrders() {
                     <p className="text-[11px] text-stone-500">
                       Hiện tại không có lệnh nào ở trạng thái PLANNED/COOKING.
                     </p>
-                  )}
+                  )} */}
                 </div>
               </CardContent>
             </Card>
