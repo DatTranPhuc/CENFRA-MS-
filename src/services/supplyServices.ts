@@ -122,9 +122,9 @@ export const supplyServices = {
    * @returns Promise<ItemsResponse[]> Danh sách các item trong lệnh sản xuất vừa tạo
    */
   createManufacturingOrder: async (body: {
-    items: {
+    products: {
       productId: number;
-      quantity: number;
+      quantityPlanned: number;
     }[];
   }) => {
     const response = await http.post<Response<ItemsResponse[]>>('/api/v1/manufacturing-orders', body);
