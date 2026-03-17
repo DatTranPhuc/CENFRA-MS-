@@ -56,13 +56,15 @@ export interface CategoryResponse {
 export interface ProductsResponse {
   productId: number;
   productName: string;
-  unit: number;
-  unitName: string | null;
   imageUrl: string;
   description: string;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: string;
+  price: number;
+  shelfLifeDays: number;
+  categoryId: number;
   categoryName: string;
-  categoryId?: number;
+  unitId: number;
+  unitName: string;
 }
 
 /**
@@ -130,6 +132,18 @@ export const managerServices = {
     const response = await http.get<Response<ProductsResponse[]>>('/api/v1/products');
     return response.data;
   },
+  
+  /**
+   * Lấy ra chi tiết sản phẩm
+   * GET /api/v1/products/{id}
+   * 
+   * @param id ID của sản phẩm
+   * @returns {Promise<Response<ProductsResponse>>}
+   */
+  getProductDetail: async (id: number) => {
+    const response = await http.get<Response<ProductsResponse>>(`/api/v1/products/${id}`);
+    return response.data;
+  },
 
   /**
    * Tạo một sản phẩm mới
@@ -142,6 +156,8 @@ export const managerServices = {
     imageUrl: string;
     description: string;
     categoryId: number;
+    price: number;
+    shelfLifeDays: number;
   }) => {
     const response = await http.post<Response<ProductsResponse>>('/api/v1/products', body);
     return response.data;
@@ -155,7 +171,7 @@ export const managerServices = {
    */
   updateProduct: async (
     id: number,
-    body: { productName: string; unitId: number; imageUrl: string; description: string; categoryId: number }
+    body: { productName: string; unitId: number; imageUrl: string; description: string; categoryId: number; price: number; shelfLifeDays: number; }
   ) => {
     const response = await http.patch(`/api/v1/products/${id}`, body);
     return response.data;
@@ -225,5 +241,89 @@ export const managerServices = {
     );
     return response;
   },
+
+  /**
+   * Lấy danh sách lô sắp hết hạn (FEFO)
+   * GET /inventory-reports/near-expiry
+   */
+  getNearExpiryBatches: async (daysThreshold: number = 14) => {
+    const res = await http.get<Response<PaginatedResponse<NearExpiryItem[]>>>(
+      '/inventory-reports/near-expiry',
+      { params: { daysThreshold } }
+    );
+    return res.data;
+  },
+
+  /**
+   * Lấy danh sách đơn yêu cầu (Manager xem tổng hợp)
+   * GET /orders
+   */
+  getOrders: async (
+    page: number = 0,
+    size: number = 50,
+    params?: { status?: string }
+  ) => {
+    const res = await http.get<Response<PaginatedResponse<ManagerOrderItem[]>>>('/orders', {
+      params: { page, size, ...params },
+    });
+    return res.data;
+  },
+
+
+  /**
+   * Top cửa hàng nhập lớn nhất
+   * GET /inventory-reports/top-importing-stores?limit=
+   */
+  getTopImportingStores: async (limit: number = 10) => {
+    const res = await http.get<Response<PaginatedResponse<TopStoreReportItem[]>>>(
+      '/inventory-reports/top-importing-stores',
+      { params: { limit } }
+    );
+    return res.data;
+  },
+
+  /**
+   * Top món tiêu thụ mạnh nhất
+   * GET /inventory-reports/top-consumed?limit=
+   */
+  getTopConsumedProducts: async (limit: number = 10) => {
+    const res = await http.get<Response<PaginatedResponse<TopProductReportItem[]>>>(
+      '/inventory-reports/top-consumed',
+      { params: { limit } }
+    );
+    return res.data;
+  },
 };
+
+/** Item từ API near-expiry */
+export interface NearExpiryItem {
+  batchCode: string;
+  product: string;
+  expiryDate: string;
+  stock: number;
+}
+
+/** Đơn hàng cho dashboard Manager */
+export interface ManagerOrderItem {
+  orderId: number;
+  orderCode: string;
+  storeId: number;
+  storeName: string;
+  orderDate: string;
+  deliveryDate?: string;
+  status: 'PENDING' | 'APPROVED' | 'CONSOLIDATED' | 'CANCELLED' | 'AWAITING_DELIVERY' | 'DONE';
+  details?: unknown;
+}
+
+/** Top cửa hàng nhập nhiều - GET /inventory-reports/top-importing-stores */
+export interface TopStoreReportItem {
+  storeName: string;
+  totalImported: number;
+}
+
+/** Top món tiêu thụ - GET /inventory-reports/top-consumed */
+export interface TopProductReportItem {
+  product: string;
+  totalConsumed: number;
+}
 

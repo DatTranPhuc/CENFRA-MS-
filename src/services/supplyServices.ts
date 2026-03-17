@@ -63,25 +63,75 @@ export interface ExportNotesResponse {
   items: ExportNoteItem[];
 }
 
-export type statusType ='PLANNED' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED';
+/**
+ * Thông tin phân bổ lô hàng khi xem trước kế hoạch xuất kho.
+ */
+export interface BatchAllocation {
+  batchId: number;
+  batchCode: string;
+  expiryDate: string;
+  manufacturingDate: string;
+  currentStock: number;
+  allocatedQuantity: number;
+}
+
+/**
+ * Chi tiết sản phẩm trong kết quả xem trước xuất kho.
+ */
+export interface PreviewProduct {
+  productId: number;
+  productName: string;
+  unit: string;
+  requiredQuantity: number;
+  fulfillableQuantity: number;
+  shortfall: number;
+  batchAllocations: BatchAllocation[];
+}
+
+/**
+ * Phản hồi xem trước kế hoạch xuất kho theo order.
+ */
+export interface PreviewOrderResponse {
+  storeOrderId: number;
+  orderCode: string;
+  storeName: string;
+  canFulfill: boolean;
+  products: PreviewProduct[];
+}
+
+export type statusType = 'PLANNED' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED';
 
 export interface DeliveryPlanResponse {
-  deliveryId: number,
-  deliveryCode: string,
-  driverName: string,
-  vehiclePlate: string,
-  scheduledDate: string,
-  actualStartDate: string,
-  actualEndDate: string,
-  status: statusType,
-  createdByUsername: string,
-  createdAt: string,
+  deliveryId: number;
+  deliveryCode: string;
+  driverName: string;
+  vehiclePlate: string;
+  scheduledDate: string;
+  actualStartDate: string;
+  actualEndDate: string;
+  status: statusType;
+  createdByUsername: string;
+  createdAt: string;
   exportNotes: {
-    exportId: number,
-    exportCode: string,
-    storeName: string,
-    status: string
-  }[]
+    exportId: number;
+    exportCode: string;
+    storeName: string;
+    status: string;
+  }[];
+}
+
+export interface DeliveryDetail {
+  deliveryId: number;
+  deliveryCode: string;
+  driverName: string;
+  vehiclePlate: string;
+  scheduledDate: string;
+  actualStartDate: string;
+  actualEndDate: string;
+  status: statusType;
+  createdByUsername: string;
+  createdAt: string;
+  exportNotes: ExportNotesResponse[];
 }
 
 /**
@@ -95,10 +145,17 @@ export interface DeliveryPlanResponse {
  * POST   /api/v1/manufacturing-orders -> Tạo lệnh sản xuất
  *
  *
- * GET    /export-notes     -> lấy ra danh sách phiếu xuất kho
+ * GET    /export-notes                -> lấy ra danh sách phiếu xuất kho
+ * GET    /export-notes/preview        -> xem trước kế hoạch xuất kho
+ *
+ *
+ * GET    /delivery-plan              -> lấy ra danh sách lịch giao hàng
+ * GET    /deliveries/{id}            -> lấy ra chi tiết lịch giao hàng
+ * PATCH  /deliveries/{id}/start      -> cập nhật tình trạng chuyến hàng (xuất phát)
+ * PATCH  /deliveries/{id}/complete   -> cập nhật tình trạng chuyến hàng (hoàn thành)
+ * PATCH  /deliveries/{id}/cancel     -> cập nhật tình trạng chuyến hàng (hủy)
  * 
  * 
- * GET    /delivery-plan    -> lấy ra danh sách lịch giao hàng
  *
  * Authorization:
  * Bearer Token
@@ -171,10 +228,14 @@ export const supplyServices = {
    * Lấy danh sách tất cả các phiếu xuất kho (Export Notes)
    * Hỗ trợ phân trang và lọc dữ liệu.
    *
+   * @param page Số trang hiện tại (bắt đầu từ 0)
+   * @param size Số lượng bản ghi trên mỗi trang (mặc định 10)
    * @returns Promise<Response<PaginatedResponse<ExportNotesResponse[]>>>
    */
-  getAllExportNote: async () => {
-    return await http.get<Response<PaginatedResponse<ExportNotesResponse[]>>>('/export-notes');
+  getAllExportNote: async (page: number = 0, size: number = 10) => {
+    return await http.get<Response<PaginatedResponse<ExportNotesResponse[]>>>(
+      `/export-notes?page=${page}&size=${size}`
+    );
   },
   /**
    * Phê duyệt đơn hàng từ chi nhánh
@@ -186,9 +247,10 @@ export const supplyServices = {
     const response = await http.post<Response<OrderResponse<OrderDetailResponse[]>>>(`/orders/${id}/approve`);
     return response.data;
   },
-   /**
+
+  /**
    * Tạo phiếu xuất kho từ danh sách các storeOrder đã được phê duyệt
-   * 
+   *
    * @param orderIds Danh sách ID các storeOrder cần tạo phiếu xuất kho
    * @returns Promise<ExportNotesResponse[]> Danh sách các phiếu xuất kho vừa tạo
    */
@@ -197,10 +259,20 @@ export const supplyServices = {
     return response.data;
   },
 
+  /**
+   * Xem trước kế hoạch xuất kho theo danh sách storeOrderId
+   *
+   * @param orderIds Danh sách ID các storeOrder cần xem trước
+   * @returns Promise<Response<PreviewOrderResponse[]>>
+   */
+  previewExportNote: async (orderIds: number[]) => {
+    const response = await http.post<Response<PreviewOrderResponse[]>>('/export-notes/preview', orderIds);
+    return response.data;
+  },
 
   /**
    * Lấy danh sách các storeOrder đủ điều kiện để tạo lệnh sản xuất
-   * 
+   *
    * @returns Promise<Response<OrderResponse<OrderDetailResponse[]>[]>>
    */
   getStoreOrderReadyForManufacturing: async () => {
@@ -208,26 +280,36 @@ export const supplyServices = {
     return response.data;
   },
 
-/*
- * API: Delivery Plan Service (Quản lý Lên lịch giao hàng)
-* @returns Promise<Response<DeliveryPlanResponse[]>>
- */
-   getDeliveryPlan: async () => {
+  /*
+   * API: Delivery Plan Service (Quản lý Lên lịch giao hàng)
+   * @returns Promise<Response<DeliveryPlanResponse[]>>
+   */
+  getDeliveryPlan: async () => {
     const response = await http.get<Response<PaginatedResponse<DeliveryPlanResponse[]>>>('/deliveries');
     return response.data;
   },
 
-/**
- * Tạo lịch giao hàng mới dựa trên danh sách các exportNote
- * 
- * @param body Đối tượng chứa thông tin lịch giao hàng
- * 
- * @returns Promise<DeliveryPlanResponse[]> Danh sách các item trong lệnh sản xuất vừa tạo
- */
+  /**
+   * Lấy ra chi tiết lịch giao hàng
+   * @param id ID của lịch giao hàng
+   * @returns Promise<Response<DeliveryDetail>>
+   */
+  getDeliveryPlanDetail: async (id: number) => {
+    const response = await http.get<Response<DeliveryDetail>>(`/deliveries/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Tạo lịch giao hàng mới dựa trên danh sách các exportNote
+   *
+   * @param body Đối tượng chứa thông tin lịch giao hàng
+   *
+   * @returns Promise<DeliveryPlanResponse[]> Danh sách các item trong lệnh sản xuất vừa tạo
+   */
   createDeliveryPlan: async (body: {
-    driverName: string,
-    vehiclePlate: string,
-    scheduledDate: string,
+    driverName: string;
+    vehiclePlate: string;
+    scheduledDate: string;
     exportNoteIds: number[];
   }) => {
     const response = await http.post<Response<DeliveryPlanResponse[]>>('/deliveries', body);
@@ -237,7 +319,7 @@ export const supplyServices = {
   /**
    * Lấy ra các phiếu suất kho sẵn sàng
    * @returns Promise<Response<ExportNotesResponse[]>>
-  */
+   */
   getExportNoteReadyForDelivery: async () => {
     const response = await http.get<Response<ExportNotesResponse[]>>('/deliveries/ready-note');
     return response.data;
@@ -253,14 +335,25 @@ export const supplyServices = {
     return response.data;
   },
 
+
+
   /**
    * cập nhật tình trang chuyến hàng (hoàn thành)
    * @param id ID của lịch giao hàng cần hủy
    * @returns Promise<Response<DeliveryPlanResponse[]>>
    */
   updateDeliveryStatusComplete: async (id: number) => {
-    const response = await http.patch<Response<DeliveryPlanResponse[]>>(`/deliveries/${id}/complete`);
+    const response = await http.patch<Response<DeliveryDetail>>(`/deliveries/${id}/complete`);
     return response.data;
   },
- 
+
+  /**
+   * cập nhật tình trang chuyến hàng (hủy)
+   * @param id ID của lịch giao hàng cần hủy
+   * @returns Promise<Response<DeliveryPlanResponse[]>>
+   */
+  updateDeliveryStatusCancel: async (id: number) => {
+    const response = await http.patch<Response<DeliveryPlanResponse[]>>(`/deliveries/${id}/cancel`);
+    return response.data;
+  },
 };

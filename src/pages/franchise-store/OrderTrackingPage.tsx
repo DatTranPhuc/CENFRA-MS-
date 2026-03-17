@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { CalendarClock, Receipt, Search, Truck, AlertTriangle, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { translateStatus } from '@/utils/labelMapping';
 import { franchiseServices, type OrderResponse, type OrderDetailResponse, type ExportNotesResponse } from '@/services/franchiseServices';
 import {toast} from 'sonner';
 
@@ -27,15 +28,8 @@ import {toast} from 'sonner';
  * Component Description
  * - Hiển thị danh sách đơn hàng đã đặt
  * - Theo dõi trạng thái duyệt đơn và trạng thái xuất kho
- * - Hiển thị thông tin lô hàng (phiếu xuất) tương ứng
+ * - Trạng thái hiển thị qua translateStatus() – không hardcode text.
  */
-
-const STORE_ORDER_STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Chờ duyệt',
-  APPROVED: 'Đã duyệt',
-  CONSOLIDATED: 'Đã gộp đơn',
-  CANCELLED: 'Đã hủy',
-};
 
 const STORE_ORDER_STATUS_CLASS: Record<string, string> = {
   PENDING: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -74,6 +68,11 @@ const OrderTrackingPage = () => {
 
   // Lí do huỷ đơn hàng
   const [cancelReason, setCancelReason] = useState('');
+
+  // Modal chi tiết đơn hàng
+  const [openDetailDialog, setOpenDetailDialog] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [orderDetail, setOrderDetail] = useState<OrderResponse<OrderDetailResponse[]> | null>(null);
 
   // ================= EFFECT =================
 
@@ -121,6 +120,24 @@ const OrderTrackingPage = () => {
   const handleCancelOrder = (orderId: number) => {
     setSelectedOrderId(orderId);
     setOpenCancelDialog(true);
+  };
+
+  const handleOpenOrderDetail = async (orderId: number) => {
+    setOpenDetailDialog(true);
+    setIsLoadingDetail(true);
+    setOrderDetail(null);
+    try {
+      const res = await franchiseServices.getOrderById(orderId);
+      if (res.success && res.data) {
+        setOrderDetail(res.data);
+      } else {
+        toast.error(res.message || 'Không tải được chi tiết đơn hàng');
+      }
+    } catch {
+      toast.error('Không tải được chi tiết đơn hàng');
+    } finally {
+      setIsLoadingDetail(false);
+    }
   };
 
   /**
@@ -252,7 +269,7 @@ const OrderTrackingPage = () => {
                       statusFilter === opt ? 'bg-amber-500 text-white font-semibold' : 'text-amber-800 hover:bg-amber-100'
                     )}
                   >
-                    {opt === 'ALL' ? 'Tất cả' : STORE_ORDER_STATUS_LABEL[opt]}
+                    {opt === 'ALL' ? 'Tất cả' : translateStatus(opt)}
                   </button>
                 ))}
               </div>
@@ -283,7 +300,11 @@ const OrderTrackingPage = () => {
                     </thead>
                     <tbody className="divide-y divide-amber-50/50">
                       {filteredOrders.map((o) => (
-                        <tr key={o.orderId} className="hover:bg-amber-50/30 transition-colors">
+                        <tr
+                          key={o.orderId}
+                          className="cursor-pointer hover:bg-amber-50/30 transition-colors"
+                          onClick={() => handleOpenOrderDetail(o.orderId)}
+                        >
                           <td className="px-4 py-3">
                             <p className="font-bold text-stone-900">{o.orderCode}</p>
                             <p className="text-[10px] text-stone-500">ID: {o.orderId}</p>
@@ -301,7 +322,7 @@ const OrderTrackingPage = () => {
                                 STORE_ORDER_STATUS_CLASS[o.status] || 'bg-stone-100 text-stone-800'
                               )}
                             >
-                              {STORE_ORDER_STATUS_LABEL[o.status] || o.status}
+                              {translateStatus(o.status)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -309,7 +330,10 @@ const OrderTrackingPage = () => {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => handleCancelOrder(o.orderId)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelOrder(o.orderId);
+                              }}
                               className={cn(
                                 'h-9 border-amber-200 text-xs font-bold hover:bg-amber-50 shadow-sm',
                                 o.status === 'PENDING' ? 'text-amber-800' : 'text-stone-400 cursor-not-allowed'
@@ -352,7 +376,7 @@ const OrderTrackingPage = () => {
                       </div>
                       <div>
                         <p className="text-[11px] font-bold text-stone-900">Đơn chờ duyệt</p>
-                        <p className="text-[10px] text-stone-500 uppercase tracking-tighter">Pending</p>
+                        <p className="text-[10px] text-stone-500 uppercase tracking-tighter">{translateStatus('PENDING')}</p>
                       </div>
                     </div>
                     <span className="text-xl font-black text-amber-900">{pendingCount}</span>
@@ -365,7 +389,7 @@ const OrderTrackingPage = () => {
                       </div>
                       <div>
                         <p className="text-[11px] font-bold text-stone-900">Đơn đã duyệt</p>
-                        <p className="text-[10px] text-stone-500 uppercase tracking-tighter">Approved</p>
+                        <p className="text-[10px] text-stone-500 uppercase tracking-tighter">{translateStatus('APPROVED')}</p>
                       </div>
                     </div>
                     <span className="text-xl font-black text-emerald-900">{approvedCount}</span>
@@ -378,7 +402,7 @@ const OrderTrackingPage = () => {
                       </div>
                       <div>
                         <p className="text-[11px] font-bold text-stone-900">Đơn đã hủy</p>
-                        <p className="text-[10px] text-stone-500 uppercase tracking-tighter">Cancelled</p>
+                        <p className="text-[10px] text-stone-500 uppercase tracking-tighter">{translateStatus('CANCELLED')}</p>
                       </div>
                     </div>
                     <span className="text-xl font-black text-stone-900">{cancelledCount}</span>
@@ -499,6 +523,104 @@ const OrderTrackingPage = () => {
               ) : (
                 'Xác nhận huỷ'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal chi tiết đơn hàng */}
+      <Dialog
+        open={openDetailDialog}
+        onOpenChange={(open) => {
+          setOpenDetailDialog(open);
+          if (!open) setOrderDetail(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl border-amber-100">
+          <DialogHeader>
+            <DialogTitle className="text-amber-900">Chi tiết đơn hàng</DialogTitle>
+            <p className="text-sm text-stone-500">
+              Thông tin đơn hàng và danh sách mặt hàng từ API.
+            </p>
+          </DialogHeader>
+
+          {isLoadingDetail && (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-amber-700">
+              <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+              Đang tải chi tiết đơn hàng...
+            </div>
+          )}
+
+          {!isLoadingDetail && orderDetail && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 rounded-lg border border-amber-100 bg-amber-50/30 p-3 text-xs">
+                <div>
+                  <p className="text-[11px] font-bold text-stone-700">Mã đơn</p>
+                  <p className="mt-1 font-semibold text-stone-900">{orderDetail.orderCode}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-stone-700">Trạng thái</p>
+                  <span
+                    className={cn(
+                      'mt-1 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold',
+                      STORE_ORDER_STATUS_CLASS[orderDetail.status] || 'bg-stone-100 text-stone-800'
+                    )}
+                  >
+                    {translateStatus(orderDetail.status)}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-stone-700">Ngày đặt</p>
+                  <p className="mt-1 font-medium text-stone-900">
+                    {new Date(orderDetail.orderDate).toLocaleString('vi-VN')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-bold text-stone-700">Ngày giao dự kiến</p>
+                  <p className="mt-1 font-medium text-stone-900">
+                    {orderDetail.deliveryDate ? new Date(orderDetail.deliveryDate).toLocaleDateString('vi-VN') : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-amber-100">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-amber-50/60 text-left text-[11px] font-bold uppercase tracking-wide text-amber-900">
+                      <th className="px-4 py-2">Sản phẩm</th>
+                      <th className="px-4 py-2 text-right">Số lượng</th>
+                      <th className="px-4 py-2">Đơn vị</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-50/60">
+                    {orderDetail.details?.map((d) => (
+                      <tr key={d.orderDetailId} className="hover:bg-amber-50/30">
+                        <td className="px-4 py-2 font-medium text-stone-900">{d.productName}</td>
+                        <td className="px-4 py-2 text-right font-bold text-stone-900">{d.quantity}</td>
+                        <td className="px-4 py-2 text-stone-700">{d.unitName ?? d.unit ?? '—'}</td>
+                      </tr>
+                    ))}
+                    {!orderDetail.details?.length && (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-6 text-center text-xs text-stone-500">
+                          Đơn hàng chưa có mặt hàng chi tiết.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpenDetailDialog(false)}
+              className="text-xs font-bold border-amber-200 hover:bg-amber-50"
+            >
+              Đóng
             </Button>
           </DialogFooter>
         </DialogContent>

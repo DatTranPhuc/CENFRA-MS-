@@ -1,21 +1,27 @@
 /**
  * File: DistributionPlanPage.tsx
  * Description: Trang quản lý kế hoạch phân phối hàng hóa. 
- *             Hiển thị danh sách phiếu xuất kho và hỗ trợ tạo đợt phân phối mới qua Popup.
+ *              Hiển thị danh sách phiếu xuất kho và hỗ trợ tạo đợt phân phối mới.
  * Author: Tuan Tran
  * Created: 2026-03-12
  */
 
-// ================= IMPORT =================
+// ================= IMPORTS =================
 
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { LayoutGrid, MapPin, Search, Loader2, Package } from 'lucide-react';
-import { supplyServices, type ExportNotesResponse, type ExportNoteItem } from '@/services/supplyServices';
+import { LayoutGrid, MapPin, Search, Loader2, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  supplyServices,
+  type ExportNotesResponse,
+  type ExportNoteItem,
+  type PreviewOrderResponse,
+} from '@/services/supplyServices';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import type { OrderResponse, OrderDetailResponse } from '@/services/franchiseServices';
+import { translateStatus } from '@/utils/labelMapping';
 import { toast } from 'sonner';
 
 // ================= TYPES =================
@@ -25,9 +31,9 @@ type PlanStatus = 'READY' | 'SHIPPED' | 'CANCEL';
 // ================= CONSTANTS =================
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
-  READY: 'Sẵn sàng giao',
-  SHIPPED: 'Đã giao',
-  CANCEL: 'Đã hủy',
+  READY: translateStatus('READY') || 'Sẵn sàng',
+  SHIPPED: translateStatus('SHIPPED') || 'Đã giao',
+  CANCEL: translateStatus('CANCEL') || 'Đã hủy',
 };
 
 const STATUS_CLASS: Record<PlanStatus, string> = {
@@ -38,11 +44,10 @@ const STATUS_CLASS: Record<PlanStatus, string> = {
 
 /**
  * DistributionPlanPage Component
- * - Hiển thị danh sách phiếu xuất kho
- * - Thống kê trạng thái phân phối
- * - Tạo đợt phân phối mới từ các đơn hàng sẵn sàng
+ * - Quản lý danh sách phiếu xuất kho
+ * - Tích hợp phân trang server-side
+ * - Preview lô thực từ các đơn hàng sẵn sàng
  */
-
 const DistributionPlanPage = () => {
 
   // ================= STATE =================
@@ -54,7 +59,20 @@ const DistributionPlanPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [readyOrders, setReadyOrders] = useState<OrderResponse<OrderDetailResponse[]>[]>([]);
   const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
-  
+
+  // UI Preview: dữ liệu thực tế từ API preview
+  const [previewData, setPreviewData] = useState<PreviewOrderResponse[]>([]);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
+  // UI Detail: mở chi tiết phiếu xuất
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedExportNote, setSelectedExportNote] = useState<ExportNotesResponse | null>(null);
+
+  // Phân trang
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 10;
+
   // Loading states
   const [loading, setLoading] = useState(false);
   const [isFetchingReady, setIsFetchingReady] = useState(false);
@@ -62,9 +80,10 @@ const DistributionPlanPage = () => {
 
   // ================= EFFECT =================
 
+  // Gọi lại API khi trang thay đổi
   useEffect(() => {
     getExportNotes();
-  }, []);
+  }, [page]);
 
   // ================= API =================
 
@@ -74,9 +93,11 @@ const DistributionPlanPage = () => {
   const getExportNotes = async () => {
     try {
       setLoading(true);
-      const response = await supplyServices.getAllExportNote();
+      const response = await supplyServices.getAllExportNote(page, PAGE_SIZE);
       if (response.data.success) {
         setExportNotes(response.data.data.items);
+        // Lưu tổng số trang từ response phân trang
+        setTotalPages(response.data.data.totalPages || 1);
       }
     } catch (error) {
       toast.error('Không thể tải danh sách phiếu xuất kho');
@@ -103,11 +124,32 @@ const DistributionPlanPage = () => {
   };
 
   /**
+   * Xem trước kế hoạch xuất kho (phân bổ lô hàng) cho các đơn đã chọn
+   */
+  const fetchPreviewData = async (ids: number[]) => {
+    if (ids.length === 0) {
+      setPreviewData([]);
+      return;
+    }
+    try {
+      setIsPreviewing(true);
+      const response = await supplyServices.previewExportNote(ids);
+      if (response.success) {
+        setPreviewData(response.data);
+      }
+    } catch (error) {
+      toast.error('Không thể tải thông tin xem trước lô hàng');
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  /**
    * Thực hiện tạo phiếu xuất kho từ các đơn hàng đã chọn
    */
   const handleCreateExportNote = async () => {
     if (selectedOrderIds.length === 0) {
-      // toast.warning('Vui lòng chọn ít nhất một đơn hàng');
+      toast.warning('Vui lòng chọn ít nhất một đơn hàng');
       return;
     }
 
@@ -118,7 +160,12 @@ const DistributionPlanPage = () => {
         toast.success('Tạo đợt phân phối thành công');
         setIsCreateModalOpen(false);
         setSelectedOrderIds([]);
-        getExportNotes();
+        // Đưa về trang 0 để thấy bản ghi mới nhất
+        if (page === 0) {
+          getExportNotes();
+        } else {
+          setPage(0);
+        }
       }
     } catch (error) {
       toast.error('Tạo đợt phân phối thất bại');
@@ -132,30 +179,41 @@ const DistributionPlanPage = () => {
   const handleOpenCreateModal = () => {
     setIsCreateModalOpen(true);
     fetchReadyOrders();
+    setPreviewData([]);
   };
 
   const handleToggleOrder = (orderId: number) => {
-    setSelectedOrderIds(prev =>
-      prev.includes(orderId)
-        ? prev.filter(id => id !== orderId)
-        : [...prev, orderId]
-    );
+    setSelectedOrderIds((prev) => {
+      const next = prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId];
+      // Gọi preview ngay khi thay đổi lựa chọn
+      fetchPreviewData(next);
+      return next;
+    });
+  };
+
+  /**
+   * Mở chi tiết phiếu xuất kho
+   */
+  const openExportDetail = (note: ExportNotesResponse) => {
+    setSelectedExportNote(note);
+    setDetailOpen(true);
   };
 
   // ================= UTILS =================
 
-  /**
-   * Lọc phiếu xuất kho theo từ khóa
-   */
   const filteredPlans = useMemo(() => {
-    if (!search.trim()) return exportNotes;
-    const q = search.toLowerCase();
-    return exportNotes.filter(
-      (p: ExportNotesResponse) =>
-        p.exportCode.toLowerCase().includes(q) ||
-        p.storeName.toLowerCase().includes(q) ||
-        p.items.some((item: ExportNoteItem) => item.productName.toLowerCase().includes(q))
-    );
+    const q = search.toLowerCase().trim();
+    const filtered = q
+      ? exportNotes.filter(
+          (p: ExportNotesResponse) =>
+            p.exportCode.toLowerCase().includes(q) ||
+            p.storeName.toLowerCase().includes(q) ||
+            p.items.some((item: ExportNoteItem) => item.productName.toLowerCase().includes(q))
+        )
+      : exportNotes;
+
+    // Sắp xếp ID giảm dần để đợt mới nhất luôn ở đầu
+    return [...filtered].sort((a, b) => b.exportId - a.exportId);
   }, [search, exportNotes]);
 
   /**
@@ -228,7 +286,7 @@ const DistributionPlanPage = () => {
                 className="border-amber-200 bg-amber-50/40 pl-9 text-xs focus:border-amber-400 focus:ring-amber-200"
               />
             </div>
-            <Button 
+            <Button
               onClick={handleOpenCreateModal}
               className="h-9 rounded-full bg-amber-500 px-4 text-xs text-white hover:bg-amber-600"
             >
@@ -264,32 +322,88 @@ const DistributionPlanPage = () => {
                             <Loader2 className="mx-auto size-6 animate-spin text-amber-500" />
                           </td>
                         </tr>
-                      ) : filteredPlans.map((p: ExportNotesResponse) => (
-                        <tr key={p.exportId} className="hover:bg-amber-50/40">
-                          <td className="px-4 py-3 font-semibold text-stone-900">{p.exportCode}</td>
-                          <td className="px-4 py-3 text-stone-800">{p.storeName}</td>
-                          <td className="px-4 py-3 text-stone-600 italic">
-                            {p.items.map((i: ExportNoteItem) => i.productName).join(', ')}
-                          </td>
-                          <td className="px-2 py-3 text-center text-stone-800 font-medium">{p.items.length}</td>
-                          <td className="px-2 py-3 text-right text-stone-800 font-bold">
-                            {p.items.reduce((sum: number, i: ExportNoteItem) => sum + i.quantity, 0)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_CLASS[p.status as PlanStatus] || 'bg-gray-100 text-gray-600'}`}
-                            >
-                              {STATUS_LABEL[p.status as PlanStatus] || p.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      ) : (
+                        filteredPlans.map((p: ExportNotesResponse) => (
+                          <tr
+                            key={p.exportId}
+                            className="cursor-pointer hover:bg-amber-50/40"
+                            onClick={() => openExportDetail(p)}
+                            title="Xem chi tiết đợt phân phối"
+                          >
+                            <td className="px-4 py-3 font-semibold text-stone-900">{p.exportCode}</td>
+                            <td className="px-4 py-3 text-stone-800">{p.storeName}</td>
+                            <td className="px-4 py-3 text-stone-600 italic">
+                              {p.items.map((i: ExportNoteItem) => i.productName).join(', ')}
+                            </td>
+                            <td className="px-2 py-3 text-center text-stone-800 font-medium">{p.items.length}</td>
+                            <td className="px-2 py-3 text-right text-stone-800 font-bold">
+                              {p.items.reduce((sum: number, i: ExportNoteItem) => sum + i.quantity, 0)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span
+                                className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_CLASS[p.status as PlanStatus] || 'bg-gray-100 text-gray-600'}`}
+                              >
+                                {STATUS_LABEL[p.status as PlanStatus] || p.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
                 {!loading && filteredPlans.length === 0 && (
                   <div className="py-10 text-center text-xs text-stone-500">Không có đợt phân phối nào phù hợp.</div>
                 )}
+
+                {/* ================= PAGINATION ================= */}
+                <div className="flex items-center justify-between border-t border-amber-50 px-4 py-3 text-xs">
+                  <span className="text-stone-500">
+                    Trang <span className="font-bold text-amber-900">{page + 1}</span> /{' '}
+                    <span className="font-bold text-amber-900">{totalPages}</span>
+                  </span>
+                  <div className="flex gap-1">
+                    {/* Nút Trang trước */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-amber-200 text-amber-900 hover:bg-amber-50 disabled:opacity-40"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={page === 0 || loading}
+                    >
+                      <ChevronLeft className="size-4" />
+                    </Button>
+
+                    {/* Hiển thị các số trang */}
+                    {Array.from({ length: totalPages }, (_, i) => i).map((p) => (
+                      <Button
+                        key={p}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(p)}
+                        disabled={loading}
+                        className={`h-8 w-8 border-amber-200 text-xs font-semibold ${
+                          p === page
+                            ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'
+                            : 'text-amber-900 hover:bg-amber-50'
+                        }`}
+                      >
+                        {p + 1}
+                      </Button>
+                    ))}
+
+                    {/* Nút Trang sau */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-amber-200 text-amber-900 hover:bg-amber-50 disabled:opacity-40"
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      disabled={page >= totalPages - 1 || loading}
+                    >
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -343,7 +457,9 @@ const DistributionPlanPage = () => {
               </div>
               <div>
                 <DialogTitle className="text-xl font-bold text-amber-900">Tạo đợt phân phối mới</DialogTitle>
-                <p className="text-xs text-amber-700/70">Chọn các đơn hàng chi nhánh đã sẵn sàng để lập đợt phân phối hàng.</p>
+                <p className="text-xs text-amber-700/70">
+                  Chọn các đơn hàng chi nhánh đã sẵn sàng để lập đợt phân phối hàng.
+                </p>
               </div>
             </div>
           </DialogHeader>
@@ -363,61 +479,165 @@ const DistributionPlanPage = () => {
                 <p className="text-xs text-stone-400">Tất cả đơn hàng đã được xử lý hoặc chưa được phê duyệt.</p>
               </div>
             ) : (
-              <div className="rounded-xl border border-amber-100 overflow-hidden shadow-sm">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-amber-50/60 text-amber-900 border-b border-amber-100">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold w-10 text-center">
-                        <input
-                          type="checkbox"
-                          className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                          checked={readyOrders.length > 0 && selectedOrderIds.length === readyOrders.length}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedOrderIds(readyOrders.map(o => o.orderId));
-                            } else {
-                              setSelectedOrderIds([]);
-                            }
-                          }}
-                        />
-                      </th>
-                      <th className="px-4 py-3 font-semibold">Mã đơn hàng</th>
-                      <th className="px-4 py-3 font-semibold">Chi nhánh</th>
-                      <th className="px-4 py-3 font-semibold text-right">Tổng sản phẩm</th>
-                      <th className="px-4 py-3 font-semibold text-right">Ngày đặt</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-amber-50 bg-white">
-                    {readyOrders.map((order: OrderResponse<OrderDetailResponse[]>) => (
-                      <tr
-                        key={order.orderId}
-                        className={`hover:bg-amber-50/30 transition-colors cursor-pointer ${
-                          selectedOrderIds.includes(order.orderId) ? 'bg-amber-50/50' : ''
-                        }`}
-                        onClick={() => handleToggleOrder(order.orderId)}
-                      >
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center">
-                            <input
-                              type="checkbox"
-                              className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
-                              checked={selectedOrderIds.includes(order.orderId)}
-                              onChange={() => handleToggleOrder(order.orderId)}
-                            />
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 font-bold text-amber-950">{order.orderCode}</td>
-                        <td className="px-4 py-3 text-stone-700">{order.storeName}</td>
-                        <td className="px-4 py-3 text-right font-medium text-stone-900">
-                          {order.details.reduce((sum: number, d: OrderDetailResponse) => sum + d.quantity, 0)} sản phẩm
-                        </td>
-                        <td className="px-4 py-3 text-right text-stone-500">
-                          {new Date(order.orderDate).toLocaleDateString('vi-VN')}
-                        </td>
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                <div className="rounded-xl border border-amber-100 overflow-hidden shadow-sm">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-amber-50/60 text-amber-900 border-b border-amber-100">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold w-10 text-center">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                            checked={readyOrders.length > 0 && selectedOrderIds.length === readyOrders.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedOrderIds(readyOrders.map((o) => o.orderId));
+                              } else {
+                                setSelectedOrderIds([]);
+                              }
+                            }}
+                          />
+                        </th>
+                        <th className="px-4 py-3 font-semibold">Mã đơn hàng</th>
+                        <th className="px-4 py-3 font-semibold">Chi nhánh</th>
+                        <th className="px-4 py-3 font-semibold text-right">Tổng sản phẩm</th>
+                        <th className="px-4 py-3 font-semibold text-right">Ngày đặt</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-amber-50 bg-white">
+                      {readyOrders.map((order: OrderResponse<OrderDetailResponse[]>) => (
+                        <tr
+                          key={order.orderId}
+                          className={`hover:bg-amber-50/30 transition-colors cursor-pointer ${
+                            selectedOrderIds.includes(order.orderId) ? 'bg-amber-50/50' : ''
+                          }`}
+                          onClick={() => handleToggleOrder(order.orderId)}
+                        >
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center">
+                              <input
+                                type="checkbox"
+                                className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                                checked={selectedOrderIds.includes(order.orderId)}
+                                onChange={() => handleToggleOrder(order.orderId)}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-amber-950">{order.orderCode}</td>
+                          <td className="px-4 py-3 text-stone-700">{order.storeName}</td>
+                          <td className="px-4 py-3 text-right font-medium text-stone-900">
+                            {order.details.reduce((sum: number, d: OrderDetailResponse) => sum + d.quantity, 0)} sản
+                            phẩm
+                          </td>
+                          <td className="px-4 py-3 text-right text-stone-500">
+                            {new Date(order.orderDate).toLocaleDateString('vi-VN')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="rounded-xl border border-amber-100 bg-white shadow-sm">
+                  <div className="border-b border-amber-50 bg-gradient-to-r from-amber-50/80 to-orange-50/80 px-4 py-3">
+                    <p className="text-sm font-bold text-amber-900">Xem trước lô hàng</p>
+                    <p className="text-[11px] text-amber-700/80">Các lô hàng cho đơn đã chọn.</p>
+                  </div>
+                  <div className="max-h-full overflow-y-auto p-4">
+                    {isPreviewing ? (
+                      <div className="flex flex-col items-center justify-center py-10 gap-2">
+                        <Loader2 className="size-6 animate-spin text-amber-500" />
+                        <p className="text-[10px] text-stone-500 font-medium italic">Đang tính toán phân bổ...</p>
+                      </div>
+                    ) : selectedOrderIds.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-amber-200 bg-amber-50/40 px-4 py-8 text-center">
+                        <Search className="size-8 text-amber-200 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs font-semibold text-amber-900/40">Chưa chọn đơn hàng</p>
+                        <p className="text-[10px] text-amber-700/30">
+                          Chọn đơn hàng ở bảng bên trái để xem chi tiết lô hàng dự kiến.
+                        </p>
+                      </div>
+                    ) : previewData.length === 0 ? (
+                      <div className="text-xs text-stone-500 text-center py-6">Không có thông tin phân bổ lô hàng.</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {previewData.map((order) => (
+                          <div
+                            key={order.storeOrderId}
+                            className="space-y-2 rounded-xl border border-amber-100 bg-amber-50/20 p-3 shadow-sm hover:border-amber-200 transition-all"
+                          >
+                            <div className="flex items-center justify-between border-b border-amber-50 pb-2">
+                              <span className="text-[11px] font-bold text-amber-900">{order.orderCode}</span>
+                              <span className="text-[10px] text-stone-500 italic">{order.storeName}</span>
+                            </div>
+
+                            <div className="space-y-3 pt-1">
+                              {order.products.map((prod) => (
+                                <div key={prod.productId} className="space-y-2">
+                                  <div className="flex justify-between items-center bg-white/60 p-2 rounded-lg border border-amber-50">
+                                    <div className="flex flex-col">
+                                      <span className="text-[11px] font-bold text-stone-900">{prod.productName}</span>
+                                      <span
+                                        className={`text-[10px] font-medium ${prod.shortfall > 0 ? 'text-red-500' : 'text-emerald-600'}`}
+                                      >
+                                        {prod.shortfall > 0 ? `Thiếu: ${prod.shortfall} ${prod.unit}` : 'Đủ hàng'}
+                                      </span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-[10px] text-stone-400 block uppercase tracking-tighter">
+                                        Yêu cầu / Có thể đáp ứng
+                                      </span>
+                                      <span className="text-[11px] font-black text-amber-700">
+                                        {prod.requiredQuantity} / {prod.fulfillableQuantity}{' '}
+                                        <span className="text-[9px] font-medium text-stone-400">{prod.unit}</span>
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 gap-1.5 pl-2">
+                                    {prod.batchAllocations.map((batch) => (
+                                      <div
+                                        key={batch.batchId}
+                                        className="flex items-center justify-between rounded-md border border-stone-100 bg-white/40 px-3 py-1.5 transition hover:bg-white hover:shadow-sm"
+                                      >
+                                        <div className="flex flex-col">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] font-bold text-stone-800">
+                                              {batch.batchCode}
+                                            </span>
+                                            <span className="text-[9px] bg-amber-100 text-amber-700 font-bold px-1 rounded uppercase tracking-tighter">
+                                              Lô
+                                            </span>
+                                          </div>
+                                          <span className="text-[9px] text-stone-400 font-medium">
+                                            HSD: {new Date(batch.expiryDate).toLocaleDateString('vi-VN')}
+                                          </span>
+                                        </div>
+                                        <div className="text-right">
+                                          <span className="text-[11px] font-bold text-stone-900">
+                                            {batch.allocatedQuantity}
+                                          </span>
+                                          <span className="text-[9px] text-stone-400 ml-1 font-medium italic">
+                                            được phân bổ
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {prod.batchAllocations.length === 0 && (
+                                      <p className="text-[10px] text-red-400 italic pl-2">
+                                        Không có lô hàng khả dụng để đáp ứng.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -451,6 +671,82 @@ const DistributionPlanPage = () => {
                 </Button>
               </div>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= MODAL: CHI TIẾT ĐỢT PHÂN PHỐI ================= */}
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) setSelectedExportNote(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl overflow-hidden rounded-2xl border border-stone-200 bg-white p-0 shadow-2xl">
+          <div className="border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-4">
+            <h3 className="text-base font-bold text-amber-900">Chi tiết đợt phân phối</h3>
+            <p className="mt-1 text-xs text-amber-700/80">Xem chi tiết phiếu xuất kho và mặt hàng.</p>
+          </div>
+          <div className="space-y-4 px-6 py-5">
+            {!selectedExportNote ? (
+              <p className="text-sm text-stone-500">Đang tải...</p>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-stone-500">Mã phiếu</p>
+                    <p className="mt-1 font-bold text-stone-900">{selectedExportNote.exportCode}</p>
+                  </div>
+                  <div className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+                    <p className="text-[11px] font-semibold text-stone-500">Trạng thái</p>
+                    <p className="mt-1 font-bold text-stone-900">{translateStatus(selectedExportNote.status)}</p>
+                  </div>
+                  <div className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 sm:col-span-2">
+                    <p className="text-[11px] font-semibold text-stone-500">Chi nhánh</p>
+                    <p className="mt-1 font-bold text-stone-900">{selectedExportNote.storeName}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-stone-700">Danh sách mặt hàng</p>
+                  <div className="overflow-hidden rounded-xl border border-amber-100">
+                    <table className="w-full text-xs">
+                      <thead className="border-b border-amber-50 bg-amber-50/60 text-left text-[11px] text-amber-900">
+                        <tr>
+                          <th className="px-4 py-2 font-semibold">Sản phẩm</th>
+                          <th className="px-4 py-2 font-semibold text-right">Số lượng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-50">
+                        {selectedExportNote.items?.map((it, idx) => (
+                          <tr key={`${it.productId ?? idx}-${idx}`} className="bg-white">
+                            <td className="px-4 py-2 font-semibold text-stone-900">{it.productName}</td>
+                            <td className="px-4 py-2 text-right font-bold text-stone-800">{it.quantity}</td>
+                          </tr>
+                        ))}
+                        {!selectedExportNote.items?.length && (
+                          <tr>
+                            <td colSpan={2} className="px-4 py-6 text-center text-xs text-stone-500">
+                              Không có mặt hàng.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter className="border-t border-stone-100 bg-stone-50 px-6 py-3">
+            <Button
+              variant="outline"
+              className="border-amber-200 text-amber-900 hover:bg-amber-50"
+              onClick={() => setDetailOpen(false)}
+            >
+              Đóng
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

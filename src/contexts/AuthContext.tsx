@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return userJson ? JSON.parse(userJson) : null;
   });
 
-  const userName = user?.userFullName ?? 'User';
+  const userName = user?.userFullName ?? 'Người dùng';
 
   const logout = useCallback(() => {
     try {
@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       localStorage.removeItem('authToken');
       localStorage.removeItem('userRole');
       localStorage.removeItem('user');
+      localStorage.removeItem('franchise_cart_v1');
     }
     setRefreshToken(null);
     setToken(null);
