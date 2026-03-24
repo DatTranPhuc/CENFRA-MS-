@@ -1,15 +1,15 @@
 /**
  * File: OrderTrackingPage.tsx
- * Description: Trang theo dõi trạng thái đơn hàng và phiếu xuất kho của chi nhánh
+ * Description: Trang theo dõi trạng thái đơn hàng của chi nhánh
  * Author: Tuan Tran, Dat Tran
  */
 
 // ================= IMPORTS =================
 
 import { useMemo, useState, useEffect } from 'react';
+import { Link } from 'react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -19,14 +19,26 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  CalendarClock, ChevronLeft, ChevronRight, Eye, Receipt,
-  Search, Truck, AlertTriangle, Loader2, XCircle, Check,
-  PackageCheck, RefreshCw, Package,
-} from 'lucide-react';
+   ChevronLeft,
+   ChevronRight,
+   Receipt,
+   Search,
+   Loader2,
+   XCircle,
+   Check,
+   RefreshCw,
+   Package,
+   LayoutGrid,
+   SlidersHorizontal,
+   Filter,
+   Plus,
+   AlertTriangle,
+   Upload,
+ } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { translateStatus } from '@/utils/labelMapping';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { franchiseServices, type OrderResponse, type OrderDetailResponse, type ExportNotesResponse } from '@/services/franchiseServices';
+import { franchiseServices, type OrderResponse, type OrderDetailResponse } from '@/services/franchiseServices';
 import { toast } from 'sonner';
 
 /**
@@ -36,7 +48,7 @@ import { toast } from 'sonner';
  * - Trạng thái hiển thị qua translateStatus() – không hardcode text.
  */
 
-const FILTER_OPTIONS = ['ALL', 'PENDING', 'APPROVED', 'IN_TRANSIT', 'CONSOLIDATED', 'CANCELLED'] as const;
+const FILTER_OPTIONS = ['ALL', 'PENDING', 'APPROVED', 'IN_TRANSIT', 'DONE', 'CONSOLIDATED', 'CANCELLED'] as const;
 type FilterStatus = (typeof FILTER_OPTIONS)[number];
 
 const normalizeOrderStatus = (status: unknown): string => {
@@ -49,7 +61,6 @@ const OrderTrackingPage = () => {
   // ================= STATE =================
 
   const [orders, setOrders] = useState<OrderResponse<OrderDetailResponse[]>[]>([]);
-  const [exportData, setExportData] = useState<ExportNotesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [openCancelDialog, setOpenCancelDialog] = useState(false);
   const [search, setSearch] = useState('');
@@ -65,6 +76,18 @@ const OrderTrackingPage = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [orderDetail, setOrderDetail] = useState<OrderResponse<OrderDetailResponse[]> | null>(null);
 
+  // Report issue state
+  const [openReportDialog, setOpenReportDialog] = useState(false);
+  const [selectedReportOrderId, setSelectedReportOrderId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState<string>('DAMAGED');
+  const [reportNote, setReportNote] = useState('');
+  const [isReporting, setIsReporting] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [reportItems, setReportItems] = useState<{ productId: number; productName: string; orderedQuantity: number; actualQuantity: number; unitName: string }[]>([]);
+  const [selectedWrongProductIds, setSelectedWrongProductIds] = useState<number[]>([]);
+  const [isFetchingReportData, setIsFetchingReportData] = useState(false);
+
   // ================= EFFECT =================
 
   useEffect(() => {
@@ -76,12 +99,8 @@ const OrderTrackingPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [orderRes, exportRes] = await Promise.all([
-        franchiseServices.getOrders(),
-        franchiseServices.getExportNote()
-      ]);
+      const orderRes = await franchiseServices.getOrders();
       if (orderRes.success && orderRes.data) setOrders(orderRes.data.items);
-      if (exportRes.success && exportRes.data) setExportData(exportRes.data);
     } catch {
       toast.error('Không thể tải dữ liệu đơn hàng');
     } finally {
@@ -169,6 +188,160 @@ const OrderTrackingPage = () => {
     }
   };
 
+  const handleReportOrder = async (orderId: number) => {
+    setSelectedReportOrderId(orderId);
+    setOpenReportDialog(true);
+    setIsFetchingReportData(true);
+    try {
+      // Tải chi tiết đơn hàng để lấy danh sách sản phẩm
+      const res = await franchiseServices.getOrderById(orderId);
+      if (res.success && res.data) {
+        const items = (res.data.details || []).map((d) => ({
+          productId: d.productId,
+          productName: d.productName,
+          orderedQuantity: d.quantity,
+          actualQuantity: d.quantity, // Mặc định khớp với số lượng đặt
+          unitName: d.unitName || d.unit || '—'
+        }));
+        setReportItems(items);
+        // Lưu lại để có thông tin khác (ngày giao...)
+        setOrderDetail(res.data);
+      }
+    } catch {
+      toast.error('Không thể tải chi tiết sản phẩm cho báo cáo');
+    } finally {
+      setIsFetchingReportData(false);
+    }
+  };
+
+  const handleReportItemChange = (productId: number, actualQty: number) => {
+    setReportItems((prev) =>
+      prev.map((item) =>
+        item.productId === productId ? { ...item, actualQuantity: actualQty } : item
+      )
+    );
+  };
+
+  const toggleWrongProduct = (productId: number) => {
+    setSelectedWrongProductIds((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      setSelectedImages((prev) => [...prev, ...files]);
+
+      const previews = files.map((file) => URL.createObjectURL(file));
+      setImagePreviews((prev) => [...prev, ...previews]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleConfirmReport = async () => {
+    if (!selectedReportOrderId) return;
+    if (!reportReason) {
+      toast.error('Vui lòng chọn lý do báo cáo');
+      return;
+    }
+
+    try {
+      setIsReporting(true);
+
+      // Chuẩn bị dữ liệu chung (Ảnh, Ghi chú, Lý do)
+      // Những thông tin này thường lý do nào cũng có
+      const commonPayload = {
+        orderId: selectedReportOrderId,
+        reason: reportReason,
+        note: reportNote,
+        images: selectedImages, // Danh sách File để upload
+      };
+
+      console.group(`>>> [BÁO CÁO SỰ CỐ] Đơn hàng: #${selectedReportOrderId} <<<`);
+      console.log("Lý do chọn:", reportReason);
+      console.log("Ghi chú:", reportNote);
+      console.log("Số lượng ảnh minh chứng:", selectedImages.length);
+
+      //  Xử lý logic riêng biệt cho từng loại sự cố
+      // Sau này khi Backend làm xong, mỗi case này bạn có thể gọi một API khác nhau
+      switch (reportReason) {
+        case 'DAMAGED':
+        case 'MISSING_ITEMS':
+        case 'QUALITY_FAILED':
+          // Đối với hàng hỏng/thiếu/kém chất lượng: Cần gửi kèm danh sách sản phẩm và số lượng thực nhận
+          const itemIssues = reportItems.map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            orderedQty: item.orderedQuantity,
+            actualQty: item.actualQuantity,
+            isDiscrepancy: item.orderedQuantity !== item.actualQuantity
+          }));
+
+          console.log("==> Cấu trúc dữ liệu [Sản phẩm & Số lượng]:", {
+            ...commonPayload,
+            items: itemIssues
+          });
+
+          // TODO: Gọi API xử lý hàng hỏng/thiếu/chất lượng
+          // const res = await franchiseServices.reportItemIssues(selectedReportOrderId, { ...commonPayload, items: itemIssues });
+          break;
+
+        case 'WRONG_ITEMS':
+          // Đối với sai hàng: Cần gửi danh sách các ID sản phẩm bị báo sai
+          console.log("==> Cấu trúc dữ liệu [Sai sản phẩm]:", {
+            ...commonPayload,
+            wrongProductIds: selectedWrongProductIds
+          });
+
+          // TODO: Gọi API xử lý sai hàng
+          // const res = await franchiseServices.reportWrongProducts(selectedReportOrderId, { ...commonPayload, wrongProductIds: selectedWrongProductIds });
+          break;
+
+        case 'LATE_DELIVERY':
+        case 'REFUSED_DELIVERY':
+          // Đối với giao muộn hoặc từ chối nhận: Thường chỉ cần note và ảnh bằng chứng
+          console.log("==> Cấu trúc dữ liệu [Vận chuyển/Từ chối]:", commonPayload);
+
+          // TODO: Gọi API xử lý vận chuyển
+          // const res = await franchiseServices.reportDeliveryIssue(selectedReportOrderId, commonPayload);
+          break;
+
+        default:
+          console.warn("⚠️ Lý do báo cáo chưa được định nghĩa logic xử lý:", reportReason);
+          break;
+      }
+      console.groupEnd();
+
+      //  Giả lập xử lý thành công (Do Backend chưa có API riêng lẻ)
+      // Khi nào có API thật, hãy thay thế logic bên dưới bằng phản hồi từ Server
+      toast.success('Đã ghi nhận báo cáo thành công! (Vui lòng kiểm tra Console Log)');
+
+      // Reset Form và đóng Modal
+      setOpenReportDialog(false);
+      setReportReason('DAMAGED');
+      setReportNote('');
+      setSelectedImages([]);
+      setImagePreviews([]);
+      setReportItems([]);
+      setSelectedWrongProductIds([]);
+
+      // Cập nhật lại danh sách nếu cần
+      // await fetchData();
+
+    } catch (error) {
+      console.error("Lỗi khi gửi báo cáo:", error);
+      toast.error('Có lỗi xảy ra, vui lòng thử lại sau');
+    } finally {
+      setIsReporting(false);
+    }
+  };
+
   // ================= UTILS =================
 
   const filteredOrders = useMemo(() => {
@@ -190,111 +363,123 @@ const OrderTrackingPage = () => {
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
   const paginatedOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const pendingCount   = orders.filter((o) => normalizeOrderStatus(o.status) === 'PENDING').length;
-  const approvedCount  = orders.filter((o) => normalizeOrderStatus(o.status) === 'APPROVED').length;
-  const inTransitCount = orders.filter((o) => normalizeOrderStatus(o.status) === 'IN_TRANSIT').length;
-  const cancelledCount = orders.filter((o) => normalizeOrderStatus(o.status) === 'CANCELLED').length;
+  const stats = useMemo(() => {
+    return {
+      total: orders.length,
+      pending: orders.filter((o) => normalizeOrderStatus(o.status) === 'PENDING').length,
+      inTransit: orders.filter((o) => normalizeOrderStatus(o.status) === 'IN_TRANSIT').length,
+    };
+  }, [orders]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
 
   // ================= RENDER =================
 
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center py-20">
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative">
-            <div className="size-14 rounded-full bg-amber-100 flex items-center justify-center">
-              <Loader2 className="size-7 animate-spin text-amber-500" />
-            </div>
-          </div>
-          <p className="text-sm font-semibold text-amber-700">Đang tải dữ liệu đơn hàng...</p>
-          <p className="text-xs text-stone-400">Vui lòng chờ trong giây lát</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full w-full space-y-0">
-      <Card className="border-amber-200/60 bg-white shadow-md overflow-hidden">
-        {/* ─── Header ─── */}
-        <CardHeader className="flex flex-row items-center justify-between border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-5">
-          <div className="flex flex-col gap-1">
+    <div className="h-full w-full space-y-5">
+      {/* ── Header Card (giống Supply — Kế hoạch phân phối) ── */}
+      <Card className="overflow-hidden border-amber-200/60 bg-white shadow-md">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-5">
+          <div className="flex min-w-0 flex-col gap-1">
             <CardTitle className="flex items-center gap-2 text-xl font-bold text-amber-900">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500 shadow-sm text-white">
-                <Truck className="size-4" />
-              </div>
-              Theo dõi đơn đặt hàng
+              <LayoutGrid className="size-6 shrink-0 text-amber-500" />
+              Quản lý đơn hàng
             </CardTitle>
-            <CardDescription className="text-xs font-medium text-amber-700/80 ml-10">
-              Theo dõi trạng thái đơn hàng và thông tin lô hàng của cửa hàng.
+            <CardDescription className="text-xs font-medium text-amber-700/80">
+              Đặt và theo dõi đơn hàng từ cửa hàng tới bếp trung tâm.
             </CardDescription>
           </div>
-
-          {/* Stats Bar */}
-          <div className="hidden items-center gap-5 md:flex">
-            {[
-              { label: 'Tổng đơn', value: orders.length, color: 'text-amber-900' },
-              { label: 'Chờ duyệt', value: pendingCount, color: 'text-amber-700' },
-              { label: 'Đang giao', value: inTransitCount, color: 'text-blue-700' },
-            ].map((s, i, arr) => (
-              <div key={s.label} className="flex items-center gap-5">
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600/70">{s.label}</span>
-                  <span className={cn('text-xl font-black', s.color)}>{s.value}</span>
-                </div>
-                {i < arr.length - 1 && <div className="h-10 w-px bg-amber-200/70" />}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={fetchData}
-              title="Làm mới"
-              className="ml-2 flex size-8 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-600 shadow-sm hover:bg-amber-50 transition"
-            >
-              <RefreshCw className="size-4" />
-            </button>
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:flex-nowrap md:gap-4">
+            <div className="flex min-w-[5.5rem] flex-col items-center rounded-xl border border-amber-100 bg-white/70 px-4 py-2.5 shadow-sm md:px-5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Tổng đơn</span>
+              <span className="mt-0.5 text-2xl font-bold text-amber-900">{stats.total}</span>
+            </div>
+            <div className="flex min-w-[5.5rem] flex-col items-center rounded-xl border border-yellow-100 bg-white/70 px-4 py-2.5 shadow-sm md:px-5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-yellow-600">Chờ duyệt</span>
+              <span className="mt-0.5 text-2xl font-bold text-yellow-700">{stats.pending}</span>
+            </div>
+            <div className="flex min-w-[5.5rem] flex-col items-center rounded-xl border border-emerald-100 bg-white/70 px-4 py-2.5 shadow-sm md:px-5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Đang giao</span>
+              <span className="mt-0.5 text-2xl font-bold text-emerald-700">{stats.inTransit}</span>
+            </div>
           </div>
         </CardHeader>
+      </Card>
 
-        <CardContent className="space-y-5 p-6">
-          {/* ─── Search + Filter ─── */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-md flex-1">
-              <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-amber-500" />
-              <Input
-                placeholder="Tìm theo mã đơn, ngày giao..."
-                value={search}
-                onChange={handleSearch}
-                className="border-amber-200 bg-amber-50/40 pl-9 text-xs focus:border-amber-400 focus:ring-amber-200"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex overflow-hidden rounded-full border border-amber-200 bg-amber-50 text-xs shadow-sm">
-                {FILTER_OPTIONS.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => handleFilterChange(opt)}
-                    className={cn(
-                      'cursor-pointer px-3 py-1.5 font-medium transition-all duration-150',
-                      opt !== 'ALL' && 'border-l border-amber-200',
-                      statusFilter === opt
-                        ? 'bg-amber-500 text-white font-bold'
-                        : 'text-amber-800 hover:bg-amber-100'
-                    )}
-                  >
-                    {opt === 'ALL' ? 'Tất cả' : translateStatus(opt)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+      {/* ── Toolbar (giống Supply) ── */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-3 shadow-sm">
+        <div className="relative min-w-0 flex-1 basis-[min(100%,18rem)]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-400" />
+          <input
+            type="text"
+            placeholder="Tìm theo mã đơn, ngày giao hoặc ghi chú..."
+            value={search}
+            onChange={handleSearch}
+            className="h-9 w-full rounded-md border border-amber-200 bg-amber-50/40 pl-9 pr-3 text-xs text-stone-800 placeholder:text-stone-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60"
+          />
+        </div>
 
-          {/* ─── Main Grid: Table + Sidebar ─── */}
-          <div className="grid gap-5 lg:grid-cols-3">
+        <div className="relative flex h-9 flex-none items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50/50 px-3">
+          <SlidersHorizontal className="size-3.5 shrink-0 text-amber-500" />
+          <span className="whitespace-nowrap text-[11px] font-medium text-amber-700">Bộ lọc:</span>
+          <select
+            value={statusFilter === 'ALL' ? '' : statusFilter}
+            onChange={(e) => {
+              const v = e.target.value;
+              handleFilterChange(v === '' ? 'ALL' : (v as FilterStatus));
+            }}
+            className="max-w-[10rem] cursor-pointer appearance-none bg-transparent pr-4 text-xs font-semibold text-amber-900 outline-none"
+          >
+            <option value="">Tất cả</option>
+            {FILTER_OPTIONS.filter((o) => o !== 'ALL').map((opt) => (
+              <option key={opt} value={opt}>
+                {translateStatus(opt)}
+              </option>
+            ))}
+          </select>
+          <Filter className="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-amber-400" />
+        </div>
 
-            {/* Orders Table */}
-            <Card className="border-amber-100 bg-white shadow-sm lg:col-span-2 overflow-hidden">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void fetchData()}
+          disabled={loading}
+          className="h-9 flex-none gap-1.5 border-amber-200 text-xs text-amber-700 hover:bg-amber-50"
+        >
+          <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
+          Làm mới
+        </Button>
+
+        <div className="hidden min-h-[1px] flex-1 sm:block" />
+
+        <div className="hidden h-6 w-px shrink-0 bg-amber-200 sm:block" />
+
+        <Button
+          asChild
+          size="sm"
+          className="h-9 flex-none gap-1.5 rounded-lg bg-amber-500 px-4 text-xs text-white shadow-sm transition-all hover:bg-amber-600 active:scale-[0.98]"
+        >
+          <Link to="/franchise-store/create-order">
+            <Plus className="size-3.5" />
+            Tạo đơn hàng
+          </Link>
+        </Button>
+      </div>
+
+      {/* ── Bảng đơn ── */}
+      <Card className="border-amber-200/60 bg-white shadow-md">
+        <CardContent className="p-6">
+          <Card className="overflow-hidden border-amber-100 bg-white shadow-sm">
               <CardHeader className="border-b border-amber-50 bg-gradient-to-r from-amber-50/80 to-orange-50/80 py-3 px-4">
                 <CardTitle className="flex items-center justify-between text-sm font-bold text-amber-900">
                   <span className="flex items-center gap-2">
@@ -302,9 +487,12 @@ const OrderTrackingPage = () => {
                     Danh sách đơn đặt hàng
                   </span>
                   <span className="text-[11px] font-normal text-amber-700/70">
-                    {filteredOrders.length} đơn
+                    {loading ? '…' : `${filteredOrders.length} đơn`}
                   </span>
                 </CardTitle>
+                <CardDescription className="text-[11px] text-amber-700/80">
+                  Theo dõi trạng thái duyệt và giao hàng.
+                </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -319,7 +507,14 @@ const OrderTrackingPage = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-50/60">
-                      {paginatedOrders.length === 0 ? (
+                      {loading ? (
+                        <tr>
+                          <td colSpan={5} className="py-16 text-center">
+                            <Loader2 className="mx-auto size-8 animate-spin text-amber-500" />
+                            <p className="mt-3 text-sm font-medium text-amber-700">Đang tải đơn hàng...</p>
+                          </td>
+                        </tr>
+                      ) : paginatedOrders.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="py-16 text-center">
                             <div className="flex flex-col items-center gap-3">
@@ -361,15 +556,6 @@ const OrderTrackingPage = () => {
                               </td>
                               <td className="px-4 py-3.5">
                                 <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                  {/* Eye button */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenOrderDetail(o.orderId)}
-                                    title="Xem chi tiết"
-                                    className="flex size-8 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-600 shadow-sm transition hover:bg-amber-500 hover:text-white hover:border-amber-500"
-                                  >
-                                    <Eye className="size-3.5" />
-                                  </button>
 
                                   {/* Confirm receive — only IN_TRANSIT */}
                                   {isInTransit && (
@@ -388,6 +574,20 @@ const OrderTrackingPage = () => {
                                     </button>
                                   )}
 
+                                  
+
+                                  {/* Report button — */}
+                                  {(normStatus === 'DONE') && (
+                                    <button
+                                      type="button"
+                                      title="Báo cáo sự cố"
+                                      onClick={() => handleReportOrder(o.orderId)}
+                                      className="flex h-8 items-center gap-1.5 rounded-lg border border-orange-200 bg-white px-2.5 text-[11px] font-bold text-orange-600 shadow-sm transition hover:bg-orange-50 hover:border-orange-300"
+                                    >
+                                      <AlertTriangle className="size-3.5" />
+                                      Báo sự cố
+                                    </button>
+                                  )}
                                   {/* Cancel — only PENDING */}
                                   <button
                                     type="button"
@@ -415,7 +615,7 @@ const OrderTrackingPage = () => {
                 </div>
 
                 {/* Pagination */}
-                {filteredOrders.length > PAGE_SIZE && (
+                {!loading && filteredOrders.length > PAGE_SIZE && (
                   <div className="flex items-center justify-between border-t border-amber-100 bg-amber-50/20 px-4 py-3">
                     <p className="text-[11px] text-stone-500">
                       <span className="font-semibold text-stone-700">
@@ -464,79 +664,6 @@ const OrderTrackingPage = () => {
                 )}
               </CardContent>
             </Card>
-
-            {/* ─── Sidebar ─── */}
-            <div className="space-y-4">
-              {/* Stats */}
-              <Card className="border-amber-100 overflow-hidden shadow-sm">
-                <CardHeader className="border-b border-amber-50 bg-gradient-to-r from-amber-50/80 to-orange-50/80 py-3 px-4">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold text-amber-900">
-                    <CalendarClock className="size-4 text-amber-500" />
-                    Thống kê đơn hàng
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2.5 p-4">
-                  {[
-                    { label: 'Chờ duyệt', sub: translateStatus('PENDING'), count: pendingCount, icon: AlertTriangle, bg: 'bg-amber-500', border: 'border-amber-100', countColor: 'text-amber-900' },
-                    { label: 'Đã duyệt', sub: translateStatus('APPROVED'), count: approvedCount, icon: Check, bg: 'bg-emerald-500', border: 'border-emerald-100', countColor: 'text-emerald-900' },
-                    { label: 'Đang giao', sub: translateStatus('IN_TRANSIT'), count: inTransitCount, icon: Truck, bg: 'bg-blue-500', border: 'border-blue-100', countColor: 'text-blue-900' },
-                    { label: 'Đã hủy', sub: translateStatus('CANCELLED'), count: cancelledCount, icon: XCircle, bg: 'bg-stone-400', border: 'border-stone-200', countColor: 'text-stone-700' },
-                  ].map((s) => (
-                    <div key={s.label} className={cn('flex items-center justify-between rounded-xl border p-3 transition-colors hover:bg-stone-50', s.border)}>
-                      <div className="flex items-center gap-3">
-                        <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm', s.bg)}>
-                          <s.icon className="size-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-stone-800">{s.label}</p>
-                          <p className="text-[10px] text-stone-400 uppercase tracking-tight">{s.sub}</p>
-                        </div>
-                      </div>
-                      <span className={cn('text-2xl font-black', s.countColor)}>{s.count}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Export Note Info */}
-              <Card className="border-sky-100 overflow-hidden shadow-sm">
-                <CardHeader className="border-b border-sky-50 bg-gradient-to-r from-sky-50/80 to-indigo-50/80 py-3 px-4">
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold text-sky-900">
-                    <PackageCheck className="size-4 text-sky-500" />
-                    Lô hàng mới nhất
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                  {exportData && exportData.items.length > 0 ? (
-                    <div className="space-y-3">
-                      {exportData.items.slice(0, 3).map((item, idx) => (
-                        <div key={idx} className="rounded-lg border border-sky-50 bg-sky-50/30 p-3">
-                          <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <span className="text-[11px] font-bold text-stone-800 leading-tight">{item.productName}</span>
-                            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{item.batchCode}</span>
-                          </div>
-                          <div className="flex justify-between text-[10px] text-stone-500 font-medium">
-                            <span>{item.quantity} {item.unitName}</span>
-                            <span>HSD: {item.expiryDate}</span>
-                          </div>
-                        </div>
-                      ))}
-                      {exportData.items.length > 3 && (
-                        <p className="text-center text-[11px] text-sky-600 font-semibold cursor-pointer hover:underline">
-                          +{exportData.items.length - 3} lô hàng khác...
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 py-6 text-center">
-                      <PackageCheck className="size-8 text-sky-100" />
-                      <p className="text-xs text-stone-400 italic">Chưa có thông tin lô hàng được xuất.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -611,7 +738,7 @@ const OrderTrackingPage = () => {
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-5 text-white text-center">
             <div className="flex flex-col items-center gap-3">
               <div className="flex size-14 items-center justify-center rounded-full bg-white/20 ring-4 ring-white/30">
-                <PackageCheck className="size-7" />
+                <Package className="size-7" />
               </div>
               <DialogHeader>
                 <DialogTitle className="text-base font-bold text-white">
@@ -755,6 +882,20 @@ const OrderTrackingPage = () => {
 
           {/* Footer */}
           <div className="border-t border-amber-100 bg-amber-50/30 px-6 py-4 flex justify-end gap-2">
+            {orderDetail && (normalizeOrderStatus(orderDetail.status) === 'IN_TRANSIT' || normalizeOrderStatus(orderDetail.status) === 'DONE') && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setOpenDetailDialog(false);
+                  handleReportOrder(orderDetail.orderId);
+                }}
+                className="h-9 border-orange-200 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+              >
+                <AlertTriangle className="mr-1.5 size-4" />
+                Báo sự cố / Từ chối nhận
+              </Button>
+            )}
             {orderDetail && normalizeOrderStatus(orderDetail.status) === 'IN_TRANSIT' && (
               <Button
                 type="button"
@@ -778,6 +919,235 @@ const OrderTrackingPage = () => {
               Đóng
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Modal báo cáo đơn hàng */}
+      <Dialog
+        open={openReportDialog}
+        onOpenChange={(open) => {
+          setOpenReportDialog(open);
+          if (!open) {
+            setReportReason('DAMAGED');
+            setReportNote('');
+            setSelectedImages([]);
+            setImagePreviews([]);
+            setReportItems([]);
+            setSelectedWrongProductIds([]);
+            setIsFetchingReportData(false);
+          }
+        }}
+      >
+        <DialogContent className="min-w-[50vw] max-w-none overflow-hidden rounded-2xl border-0 p-0 shadow-2xl">
+          <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-6 py-5 text-white">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-white">
+                <AlertTriangle className="size-5" />
+                Từ chối nhận hàng / Báo cáo sự cố
+              </DialogTitle>
+            </DialogHeader>
+            <p className="mt-1 text-xs text-orange-100 font-medium">
+              Vui lòng cung cấp chi tiết sự cố để chúng tôi hỗ trợ bạn tốt nhất.
+            </p>
+          </div>
+
+          <div className="space-y-4 p-6 overflow-y-auto max-h-[70dvh]">
+            <div className="space-y-3">
+              <Label className="text-xs font-bold text-stone-700">Lý do <span className="text-red-500">*</span></Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'DAMAGED', label: 'Hàng vỡ / hỏng' },
+                  { key: 'MISSING_ITEMS', label: 'Thiếu hàng' },
+                  { key: 'WRONG_ITEMS', label: 'Sai hàng' },
+                  { key: "QUALITY_FAILED", label: "Chất lượng kém" },
+                  { key: "LATE_DELIVERY", label: "Giao hàng muộn" },
+                  { key: 'REFUSED_DELIVERY', label: 'Từ chối nhận' },
+                ].map((item) => (
+                  <label
+                    key={item.key}
+                    className={cn(
+                      'flex items-center gap-2 rounded-xl border p-2.5 cursor-pointer transition-all',
+                      reportReason === item.key
+                        ? 'border-orange-500 bg-orange-50 shadow-sm ring-1 ring-orange-500'
+                        : 'border-stone-100 bg-stone-50/50 hover:bg-stone-50'
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      className="size-3.5 accent-orange-500"
+                      name="reportReason"
+                      value={item.key}
+                      checked={reportReason === item.key}
+                      onChange={(e) => setReportReason(e.target.value)}
+                    />
+                    <span className={cn('text-[11px] font-bold', reportReason === item.key ? 'text-orange-900' : 'text-stone-600')}>
+                      {item.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Dynamic Form Content */}
+            {isFetchingReportData ? (
+              <div className="flex flex-col items-center justify-center py-6 gap-2">
+                <Loader2 className="size-6 animate-spin text-orange-500" />
+                <span className="text-[11px] text-stone-500 line-clamp-1">Đang tải thông tin sản phẩm...</span>
+              </div>
+            ) : (
+              <>
+                {/* Product Select for WRONG_ITEMS */}
+                {reportReason === 'WRONG_ITEMS' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-stone-700">Chọn các sản phẩm bị sai</Label>
+                    <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                      {reportItems.map((item) => {
+                        const isSelected = selectedWrongProductIds.includes(item.productId);
+                        return (
+                          <div
+                            key={item.productId}
+                            onClick={() => toggleWrongProduct(item.productId)}
+                            className={cn(
+                              'flex items-center justify-between rounded-xl border p-3 cursor-pointer transition-all',
+                              isSelected
+                                ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                                : 'border-stone-100 bg-stone-50/30 hover:bg-stone-50 hover:border-stone-200'
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "flex size-5 items-center justify-center rounded-sm border transition-colors",
+                                isSelected ? "border-orange-500 bg-orange-500 text-white" : "border-stone-300 bg-white"
+                              )}>
+                                {isSelected && <Check className="size-3.5 stroke-[3]" />}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className={cn('text-[11px] font-bold', isSelected ? 'text-orange-900' : 'text-stone-700')}>{item.productName}</span>
+                                <span className="text-[10px] text-stone-500">Đặt: {item.orderedQuantity} {item.unitName}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {reportItems.length === 0 && (
+                        <p className="text-[11px] text-stone-400 text-center py-4">Không có sản phẩm nào để chọn.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Product List for other item-related issues */}
+                {['DAMAGED', 'MISSING_ITEMS', 'QUALITY_FAILED'].includes(reportReason) && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-stone-700">Thông tin hàng hóa thực tế</Label>
+                    <div className="overflow-hidden rounded-xl border border-stone-100">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="bg-stone-50 text-left text-stone-500 font-bold uppercase tracking-wider">
+                            <th className="px-3 py-2">Sản phẩm</th>
+                            <th className="px-3 py-2 text-center">Đặt</th>
+                            <th className="px-3 py-2 text-center w-20">Nhận</th>
+                            <th className="px-3 py-2 text-center">ĐVT</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-stone-50">
+                          {reportItems.map((item) => (
+                            <tr key={item.productId} className="bg-white">
+                              <td className="px-3 py-2 font-medium text-stone-900 line-clamp-1">{item.productName}</td>
+                              <td className="px-3 py-2 text-center text-stone-500">{item.orderedQuantity}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={item.orderedQuantity}
+                                  value={item.actualQuantity}
+                                  onChange={(e) => handleReportItemChange(item.productId, parseInt(e.target.value) || 0)}
+                                  className="w-full h-7 rounded-md border border-stone-200 bg-stone-50/50 text-center font-bold text-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center text-stone-400">{item.unitName}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[10px] text-stone-400 italic font-medium">
+                      * Nhập số lượng thực nhận để hệ thống xác định mức độ hư hại/thiếu hụt.
+                    </p>
+                  </div>
+                )}
+
+                {/* Delivery Info for Late Delivery */}
+                {reportReason === 'LATE_DELIVERY' && orderDetail && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-3 space-y-1">
+                    <p className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
+                      <Package className="size-3.5" /> Thông tin giao hàng
+                    </p>
+                    <div className="grid grid-cols-2 text-[10px] text-blue-700 font-medium">
+                      <span>Ngày giao dự kiến:</span>
+                      <span className="text-right font-bold">{orderDetail.deliveryDate ? new Date(orderDetail.deliveryDate).toLocaleDateString('vi-VN') : '—'}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-stone-700">Mô tả chi tiết</Label>
+                  <textarea
+                    placeholder="Vui lòng mô tả cụ thể tình trạng (ví dụ: Thùng bị móp hỏng 2 chai nước tương...)"
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    rows={3}
+                    className="flex w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-2.5 text-xs text-stone-800 placeholder:text-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1 resize-none font-medium"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-xs font-bold text-stone-700">Ảnh minh chứng <span className="text-stone-400 font-normal">(Bắt buộc để đối chứng)</span></Label>
+                  <div className="flex flex-wrap gap-3">
+                    {imagePreviews.map((url, idx) => (
+                      <div key={idx} className="relative group size-16 rounded-lg overflow-hidden border border-stone-200 shadow-sm">
+                        <img src={url} alt="Evidence" className="size-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 size-4 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XCircle className="size-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="flex flex-col items-center justify-center size-16 rounded-lg border-2 border-dashed border-stone-200 bg-stone-50 cursor-pointer hover:bg-stone-100 hover:border-orange-300 transition-colors">
+                      <Upload className="size-4 text-stone-400" />
+                      <span className="mt-1 text-[8px] text-stone-500 font-bold text-center px-1">Thêm ảnh</span>
+                      <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange} />
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2 border-t border-stone-100 bg-stone-50 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpenReportDialog(false)}
+              className="flex-1 text-xs font-bold border-stone-200 text-stone-600 hover:bg-stone-100"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmReport}
+              disabled={isReporting}
+              className="flex-1 bg-orange-600 text-xs font-bold text-white hover:bg-orange-700 shadow-sm transition-all"
+            >
+              {isReporting ? (
+                <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Đang xử lý...</>
+              ) : (
+                <><Check className="mr-1.5 size-3.5 stroke-[3]" /> Gửi báo cáo</>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

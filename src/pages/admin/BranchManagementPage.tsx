@@ -10,6 +10,7 @@
 
 // ================= IMPORT =================
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ type StoreFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 // ================= COMPONENT =================
 const BranchManagementPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   // ================= INTERNAL COMPONENTS =================
   /**
    * Component hiển thị Badge trạng thái cao cấp
@@ -128,6 +130,47 @@ const BranchManagementPage = () => {
   useEffect(() => {
     fetchStore(currentPage);
   }, [fetchStore, currentPage]);
+
+  /** Admin: mở sửa cửa hàng khi vào từ Quản lý người dùng (tài khoản franchise). */
+  const editStoreIdParam = searchParams.get('editStoreId');
+  useEffect(() => {
+    if (!editStoreIdParam) return;
+    const id = Number(editStoreIdParam);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await adminService.getStoreById(id);
+        const payload = res.data as { success?: boolean; data?: StoreResponse; message?: string };
+        const store = payload?.data;
+        if (cancelled) return;
+        if (!store) {
+          toast.error('Không tìm thấy cửa hàng.');
+          return;
+        }
+        setEditingStore(store);
+        reset({
+          storeId: store.storeId,
+          storeName: store.storeName,
+          address: store.address,
+          phone: store.phone,
+          status: store.status,
+        });
+        setDialogOpen(true);
+        setSearchParams((prev: URLSearchParams) => {
+          const p = new URLSearchParams(prev);
+          p.delete('editStoreId');
+          return p;
+        }, { replace: true });
+      } catch {
+        toast.error('Không tải được cửa hàng để chỉnh sửa.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editStoreIdParam, reset, setSearchParams]);
 
   // ================= LOGIC / FILTER =================
   /**
@@ -272,12 +315,12 @@ const BranchManagementPage = () => {
           <CardContent className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 -mt-2 text-amber-600" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-400" />
                 <Input
                   placeholder="Tìm theo tên, địa chỉ..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="border-amber-200 bg-amber-50/50 pl-9 focus:border-amber-400 focus:ring-amber-200"
+                  className="h-9 w-full rounded-md border border-amber-200 bg-amber-50/40 pl-9 pr-3 text-xs text-stone-800 placeholder:text-stone-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60"
                 />
               </div>
             </div>
@@ -319,10 +362,10 @@ const BranchManagementPage = () => {
                   size="sm"
                   variant={statusFilter === 'INACTIVE' ? 'default' : 'outline'}
                   className={cn(
-                    'h-8 rounded-full border-stone-300 px-3 text-xs',
+                    'h-8 rounded-full border-rose-200 px-3 text-xs',
                     statusFilter === 'INACTIVE'
-                      ? 'bg-stone-700 text-white hover:bg-stone-800'
-                      : 'bg-white text-stone-700 hover:bg-stone-50'
+                      ? 'bg-rose-500 text-white hover:bg-rose-600'
+                      : 'bg-white text-rose-700 hover:bg-rose-50'
                   )}
                   onClick={() => setStatusFilter('INACTIVE')}
                 >
