@@ -164,7 +164,12 @@ export interface DeliveryIssueResponse {
   reviewDecision: string | null;
   replacementOrderId: number | null;
   replacementOrderCode: string | null;
-  images?: string[];
+  reportedOrderStatus: string;
+  totalQuantity: number;
+  affectedQuantity: number;
+  recommendedResolution: string;
+  selectedResolution: string;
+  imageUrls: string[];
   issueItems?: {
     productId: number;
     productName: string;
@@ -209,13 +214,20 @@ export interface DeliveryIssueResponse {
 export const supplyServices = {
   /**
    * Lấy danh sách tất cả các đơn hàng từ chi nhánh (Franchise Orders)
+   * Hỗ trợ phân trang và lọc theo mã đơn hoặc trạng thái.
    *
-   * @returns Promise<PaginatedResponse<OrderResponse<OrderDetailResponse[]>[]>>
+   * @param page Số trang hiện tại (bắt đầu từ 0)
+   * @param size Số lượng bản ghi trên mỗi trang (mặc định 10)
+   * @param search Từ khóa tìm kiếm (mã đơn, chi nhánh...)
+   * @param status Trạng thái đơn hàng
+   * @returns Promise<Response<PaginatedResponse<OrderResponse<OrderDetailResponse[]>[]>>>
    */
-  getAllOrders: async (page: number = 0, size: number = 50) => {
-    const response = await http.get<Response<PaginatedResponse<OrderResponse<OrderDetailResponse[]>[]>>>('/orders', {
-      params: { page, size },
-    });
+  getAllOrders: async (page: number = 0, size: number = 10, search?: string, status?: string) => {
+    let url = `/orders?page=${page}&size=${size}`;
+    if (search) url += `&orderCode=${encodeURIComponent(search)}`;
+    if (status && status !== 'ALL') url += `&status=${status}`;
+
+    const response = await http.get<Response<PaginatedResponse<OrderResponse<OrderDetailResponse[]>[]>>>(url);
     return response.data;
   },
 
@@ -439,11 +451,12 @@ export const supplyServices = {
    * @param newDeliveryDate Ngày giao hàng mới (chỉ áp dụng khi RESCHEDULE_CURRENT_ORDER)
    * @returns Promise<Response<DeliveryIssueResponse>>
    */
-  reviewDeliveryIssue: async (id: number, decision: string, newDeliveryDate: string) => {
-    const response = await http.post<Response<DeliveryIssueResponse>>(`/delivery-issues/${id}/review`, {
-      decision,
-      newDeliveryDate,
-    });
+  reviewDeliveryIssue: async (id: number, decision: string, newDeliveryDate?: string) => {
+    const payload: any = { decision };
+    if (newDeliveryDate) {
+      payload.newDeliveryDate = newDeliveryDate;
+    }
+    const response = await http.post<Response<DeliveryIssueResponse>>(`/delivery-issues/${id}/review`, payload);
     return response.data;
   },
 };
