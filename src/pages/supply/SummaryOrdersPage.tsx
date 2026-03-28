@@ -12,11 +12,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Package, Search, Filter, ChevronLeft, ChevronRight, RefreshCw, SlidersHorizontal, Zap, ListChecks } from 'lucide-react';
+import {
+  Hand,
+  Package,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  SlidersHorizontal,
+  Zap,
+  ListChecks,
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import type { OrderDetailResponse, OrderResponse } from '@/services/franchiseServices';
 import type { ConsolidationProduct, ConsolidationResponse } from '@/services/supplyServices';
 import { supplyServices } from '@/services/supplyServices';
+import { managerServices, type ProductsResponse } from '@/services/managerServices';
 import { normalizeStatusKey, translateStatus } from '@/utils/labelMapping';
 import { toast } from 'sonner';
 
@@ -25,6 +37,9 @@ function SummaryOrdersPage() {
   // ================= STATE =================
   // Danh sách đơn hàng từ API (đã được phân trang)
   const [orders, setOrders] = useState<OrderResponse<OrderDetailResponse[]>[]>([]);
+  // Danh sách đơn hàng dùng cho modal gom thủ công (load all APPROVED)
+  const [manualOrders, setManualOrders] = useState<OrderResponse<OrderDetailResponse[]>[]>([]);
+  const [isLoadingManualOrders, setIsLoadingManualOrders] = useState(false);
 
   // Tìm kiếm và lọc
   const [search, setSearch] = useState('');
@@ -46,6 +61,14 @@ function SummaryOrdersPage() {
   const [editedProducts, setEditedProducts] = useState<ConsolidationProduct[]>([]);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
+
+  // Sản xuất thủ công
+  const [isManualProductionOpen, setIsManualProductionOpen] = useState(false);
+  const [productList, setProductList] = useState<ProductsResponse[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [manualQty, setManualQty] = useState<number>(1);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isSubmittingProduction, setIsSubmittingProduction] = useState(false);
 
   // Trạng thái xử lý
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -78,31 +101,55 @@ function SummaryOrdersPage() {
   const getAllOrders = async () => {
     try {
       const response = await supplyServices.getAllOrders(page, PAGE_SIZE, search, statusFilter);
-      let firstItems: any[] = [];
-      let currentTotalPages = 1;
       if (response.success && response.data) {
-        firstItems = response.data.items;
-        currentTotalPages = response.data.totalPages;
-        setTotalPages(response.data.totalPages);
-        setTotalElements(response.data.totalElements);
+        setOrders(Array.isArray(response.data.items) ? response.data.items : []);
+        setTotalPages(response.data.totalPages ?? 1);
+        setTotalElements(response.data.totalElements ?? 0);
+      } else {
+        setOrders([]);
+        setTotalPages(1);
+        setTotalElements(0);
+      }
+    } catch (error) {
+      toast.error('Không thể tải danh sách đơn hàng');
+    }
+  };
+
+  /**
+   * Load toàn bộ đơn hàng APPROVED cho modal gom thủ công (tránh phụ thuộc vào trang hiện tại).
+   */
+  const loadManualOrders = async () => {
+    try {
+      setIsLoadingManualOrders(true);
+      const first = await supplyServices.getAllOrders(0, PAGE_SIZE, search, 'APPROVED');
+      if (!first.success || !first.data) {
+        setManualOrders([]);
+        return;
+      }
+
+      const total = first.data.totalPages ?? 1;
+      const firstItems = Array.isArray(first.data.items) ? first.data.items : [];
+
+      if (total <= 1) {
+        setManualOrders(firstItems);
+        return;
       }
 
       const rest = await Promise.all(
-        Array.from({ length: currentTotalPages - 1 }, (_, i) => supplyServices.getAllOrders(i + 1, PAGE_SIZE))
+        Array.from({ length: total - 1 }, (_, i) => supplyServices.getAllOrders(i + 1, PAGE_SIZE, search, 'APPROVED'))
       );
+      const restItems = rest.flatMap((res) => (res?.success && res.data && Array.isArray(res.data.items) ? res.data.items : []));
 
-      const restItems = rest.flatMap((res) => {
-        const payload = res?.data as any;
-        return (
-          (Array.isArray(payload?.items) && payload.items) ||
-          (Array.isArray(payload?.content) && payload.content) ||
-          []
-        );
+      // Dedup theo orderId để an toàn
+      const map = new Map<number, OrderResponse<OrderDetailResponse[]> >();
+      [...firstItems, ...restItems].forEach((o) => {
+        if (o?.orderId != null && !map.has(o.orderId)) map.set(o.orderId, o);
       });
-
-      setOrders([...firstItems, ...restItems]);
-    } catch (error) {
-      toast.error('Không thể tải danh sách đơn hàng');
+      setManualOrders(Array.from(map.values()));
+    } catch {
+      setManualOrders([]);
+    } finally {
+      setIsLoadingManualOrders(false);
     }
   };
 
@@ -133,9 +180,7 @@ function SummaryOrdersPage() {
    * @param newQuantity Số lượng mới
    */
   const handleQuantityChange = (productId: number, newQuantity: number) => {
-    setEditedProducts((prev) => 
-      prev.map((p) => (p.productId === productId ? { ...p, quantity: newQuantity } : p))
-    );
+    setEditedProducts((prev) => prev.map((p) => (p.productId === productId ? { ...p, quantity: newQuantity } : p)));
   };
 
   /**
@@ -144,6 +189,7 @@ function SummaryOrdersPage() {
   function manuConsolidate() {
     setSelectedOrderIds([]);
     setIsManualModalOpen(true);
+    loadManualOrders();
   }
 
   /**
@@ -152,9 +198,7 @@ function SummaryOrdersPage() {
    * @param orderId ID của đơn hàng
    */
   const toggleOrderSelection = (orderId: number) => {
-    setSelectedOrderIds((prev) => 
-      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
-    );
+    setSelectedOrderIds((prev) => (prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]));
   };
 
   /**
@@ -176,6 +220,56 @@ function SummaryOrdersPage() {
     }
   };
 
+  /**
+   * Mở modal sản xuất thủ công và tải danh sách sản phẩm active
+   */
+  const openManualProductionModal = async () => {
+    setSelectedProductId(null);
+    setManualQty(1);
+    setIsManualProductionOpen(true);
+    try {
+      setIsLoadingProducts(true);
+      const response = await managerServices.getAllProducts();
+      if (response.success && response.data) {
+        // Lọc chỉ các sản phẩm ACTIVE
+        const activeProducts = response.data.filter((p) => p.status === 'ACTIVE');
+        setProductList(activeProducts);
+      }
+    } catch (error) {
+      toast.error('Không thể tải danh sách sản phẩm');
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  /**
+   * Gửi yêu cầu tạo lệnh sản xuất thủ công
+   */
+  const handleSubmitManualProduction = async () => {
+    if (!selectedProductId) {
+      toast.warning('Vui lòng chọn một sản phẩm');
+      return;
+    }
+    if (!manualQty || manualQty <= 0) {
+      toast.warning('Số lượng phải lớn hơn 0');
+      return;
+    }
+    try {
+      setIsSubmittingProduction(true);
+      const response = await supplyServices.createManuProduction({
+        productId: selectedProductId,
+        quantityPlanned: manualQty,
+      });
+      if (response.success) {
+        toast.success('Tạo lệnh sản xuất thủ công thành công!');
+        setIsManualProductionOpen(false);
+      }
+    } catch (error) {
+      toast.error('Tạo lệnh sản xuất thủ công thất bại');
+    } finally {
+      setIsSubmittingProduction(false);
+    }
+  };
   /**
    * Nghiệp vụ: Phê duyệt đơn hàng
    *
@@ -243,11 +337,14 @@ function SummaryOrdersPage() {
 
   // Tính toán thống kê từ danh sách orders hiện tại (Lưu ý: Chỉ là thống kê cho trang hiện tại nếu backend không trả về global stats)
   const stats = useMemo(() => {
-    return { 
-      total: totalElements, 
+    return {
+      total: totalElements,
       pending: statusFilter === 'PENDING' ? totalElements : '—', // Nếu đang lọc Pending thì dùng totalElements
-      totalProducts: orders.reduce((acc: number, curr: OrderResponse<OrderDetailResponse[]>) => 
-        acc + curr.details.reduce((sum: number, item: OrderDetailResponse) => sum + item.quantity, 0), 0)
+      totalProducts: orders.reduce(
+        (acc: number, curr: OrderResponse<OrderDetailResponse[]>) =>
+          acc + curr.details.reduce((sum: number, item: OrderDetailResponse) => sum + item.quantity, 0),
+        0
+      ),
     };
   }, [totalElements, orders, statusFilter]);
 
@@ -399,7 +496,15 @@ function SummaryOrdersPage() {
         {/* Action buttons */}
         <Button
           size="sm"
-          className="h-9 shrink-0 gap-1.5 rounded-lg bg-amber-500 px-4 text-xs text-white shadow-sm transition-all hover:bg-amber-600 active:scale-95"
+          className="h-9 shrink-0 gap-1.5 rounded-lg bg-amber-500 px-4 text-xs text-white shadow-sm transition-all hover:bg-amber-600 active:scale-95 hover:cursor-pointer"
+          onClick={openManualProductionModal}
+        >
+          <Hand className="size-3.5" />
+          Sản xuất thủ công
+        </Button>
+        <Button
+          size="sm"
+          className="h-9 shrink-0 gap-1.5 rounded-lg bg-amber-500 px-4 text-xs text-white shadow-sm transition-all hover:bg-amber-600 active:scale-95 hover:cursor-pointer"
           onClick={() => autoConsolidate()}
         >
           <Zap className="size-3.5" />
@@ -408,7 +513,7 @@ function SummaryOrdersPage() {
         <Button
           size="sm"
           variant="outline"
-          className="h-9 shrink-0 gap-1.5 rounded-lg border-amber-300 px-4 text-xs text-amber-800 transition-all hover:bg-amber-50 active:scale-95"
+          className="h-9 shrink-0 gap-1.5 rounded-lg border-amber-300 px-4 text-xs text-amber-800 transition-all hover:bg-amber-50 active:scale-95 hover:cursor-pointer"
           onClick={manuConsolidate}
         >
           <ListChecks className="size-3.5" />
@@ -469,12 +574,14 @@ function SummaryOrdersPage() {
                       ) : (
                         paginatedOrders.map((o: OrderResponse<OrderDetailResponse[]>) => (
                           <tr
-                            key={o.orderId}
+                            key={`${o.orderId}-${o.storeId}-${o.orderCode}`}
                             className="cursor-pointer transition-colors hover:bg-amber-50/60 group"
                             onClick={() => openDetail(o)}
                             title="Xem chi tiết đơn hàng"
                           >
-                            <td className="px-4 py-3 font-mono text-[11px] font-semibold text-stone-700">{o.orderCode}</td>
+                            <td className="px-4 py-3 font-mono text-[11px] font-semibold text-stone-700">
+                              {o.orderCode}
+                            </td>
                             <td className="px-4 py-3 text-stone-700">{o.storeName}</td>
                             <td className="px-4 py-3 text-stone-700">
                               {o.details?.[0]?.productName || 'N/A'}
@@ -485,7 +592,8 @@ function SummaryOrdersPage() {
                               )}
                             </td>
                             <td className="px-2 py-3 text-center font-semibold text-stone-700">
-                              {o.details?.reduce((acc: number, curr: OrderDetailResponse) => acc + curr.quantity, 0) || 0}
+                              {o.details?.reduce((acc: number, curr: OrderDetailResponse) => acc + curr.quantity, 0) ||
+                                0}
                             </td>
                             <td className="px-4 py-3">
                               <OrderStatusBadge status={o.status} />
@@ -555,7 +663,6 @@ function SummaryOrdersPage() {
                 </div>
               </CardContent>
             </Card>
-
           </div>
         </CardContent>
       </Card>
@@ -663,11 +770,11 @@ function SummaryOrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-amber-50">
-                  {orders
+                  {(isLoadingManualOrders ? [] : manualOrders)
                     .filter((o) => normalizeStatusKey(o.status) === 'APPROVED')
                     .map((o) => (
                       <tr
-                        key={o.orderId}
+                        key={`manual-${o.orderId}-${o.storeId}-${o.orderCode}`}
                         className={`hover:bg-amber-50/40 cursor-pointer ${selectedOrderIds.includes(o.orderId) ? 'bg-amber-50' : ''}`}
                         onClick={() => toggleOrderSelection(o.orderId)}
                       >
@@ -687,7 +794,8 @@ function SummaryOrdersPage() {
                         </td>
                       </tr>
                     ))}
-                  {orders.filter((o) => normalizeStatusKey(o.status) === 'APPROVED').length === 0 && (
+                  {!isLoadingManualOrders &&
+                    manualOrders.filter((o) => normalizeStatusKey(o.status) === 'APPROVED').length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-10 text-center text-stone-500">
                         Không có đơn hàng nào đã duyệt để tổng hợp.
@@ -723,6 +831,127 @@ function SummaryOrdersPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Dialog Sản xuất thủ công ── */}
+      <Dialog open={isManualProductionOpen} onOpenChange={setIsManualProductionOpen}>
+        <DialogContent onClose={() => setIsManualProductionOpen(false)}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-900">
+              <Hand className="size-5 text-amber-500" />
+              Sản xuất thủ công
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+            {/* Thông báo hướng dẫn */}
+            <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+              <p className="text-sm text-amber-800">
+                Chọn <strong>1 sản phẩm</strong> và nhập số lượng cần sản xuất. Lệnh sản xuất sẽ được tạo ngay lập tức.
+              </p>
+            </div>
+
+            {/* Chọn sản phẩm */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                Sản phẩm <span className="text-red-500">*</span>
+              </label>
+              {isLoadingProducts ? (
+                <div className="flex h-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50/30">
+                  <span className="text-xs text-stone-500">Đang tải danh sách sản phẩm...</span>
+                </div>
+              ) : (
+                <select
+                  value={selectedProductId ?? ''}
+                  onChange={(e) => setSelectedProductId(Number(e.target.value) || null)}
+                  className="h-10 w-full rounded-lg border border-amber-200 bg-white px-3 text-sm text-stone-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 cursor-pointer"
+                >
+                  <option value="">-- Chọn sản phẩm --</option>
+                  {productList.map((p) => (
+                    <option key={p.productId} value={p.productId}>
+                      {p.productName} ({p.unitName})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Thông tin chi tiết sản phẩm đã chọn */}
+            {selectedProductId &&
+              (() => {
+                const selected = productList.find((p) => p.productId === selectedProductId);
+                if (!selected) return null;
+                return (
+                  <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                    {/* Ảnh sản phẩm */}
+                    {selected.imageUrl ? (
+                      <img
+                        src={selected.imageUrl}
+                        alt={selected.productName}
+                        className="h-16 w-16 shrink-0 rounded-lg border border-amber-100 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-amber-100 bg-amber-100 text-amber-300">
+                        <Package className="size-7" />
+                      </div>
+                    )}
+
+                    {/* Thông tin */}
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <p className="text-sm font-bold text-stone-900 truncate">{selected.productName}</p>
+                      {selected.description && (
+                        <p className="text-[11px] text-stone-500 line-clamp-2">{selected.description}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 pt-0.5 text-[11px] text-stone-500">
+                        <span>
+                          Danh mục: <strong className="text-stone-700">{selected.categoryName}</strong>
+                        </span>
+                        <span>
+                          Đơn vị: <strong className="text-amber-700">{selected.unitName}</strong>
+                        </span>
+                        <span>
+                          Giá: <strong className="text-green-700">{selected.price.toLocaleString('vi-VN')} ₫</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+            {/* Nhập số lượng */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                Số lượng sản xuất <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="number"
+                min={1}
+                value={manualQty}
+                onChange={(e) => setManualQty(Number(e.target.value))}
+                placeholder="Nhập số lượng..."
+                className="h-10 border-amber-200 bg-amber-50/20 font-semibold text-amber-800 focus:border-amber-400 focus:ring-amber-200"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsManualProductionOpen(false)}
+              className="rounded-full border-amber-200 px-6 text-stone-600 hover:bg-stone-50"
+              disabled={isSubmittingProduction}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleSubmitManualProduction}
+              disabled={isSubmittingProduction || !selectedProductId}
+              className="rounded-full bg-amber-500 px-8 text-white hover:bg-amber-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isSubmittingProduction ? 'Đang tạo...' : 'Xác nhận tạo lệnh'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog chi tiết đơn hàng (UI only) */}
       <Dialog
         open={detailOpen}
@@ -734,7 +963,6 @@ function SummaryOrdersPage() {
         <DialogContent className="max-w-3xl overflow-hidden rounded-2xl border border-stone-200 bg-white p-0 shadow-2xl">
           <div className="border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-4">
             <h3 className="text-base font-bold text-amber-900">Chi tiết đơn hàng</h3>
-            <p className="mt-1 text-xs text-amber-700/80">Mô phỏng UI xem chi tiết đơn khi click vào dòng.</p>
           </div>
           <div className="space-y-4 px-6 py-5">
             {!selectedOrder ? (
@@ -768,7 +996,7 @@ function SummaryOrdersPage() {
                       </thead>
                       <tbody className="divide-y divide-amber-50">
                         {selectedOrder.details?.map((d, idx) => (
-                          <tr key={`${d.productId ?? idx}-${idx}`} className="bg-white">
+                          <tr key={`${selectedOrder.orderId}-${d.orderDetailId ?? `${d.productId}-${idx}`}`} className="bg-white">
                             <td className="px-4 py-2 font-semibold text-stone-900">{d.productName}</td>
                             <td className="px-4 py-2 text-right font-bold text-stone-800">{d.quantity}</td>
                           </tr>
@@ -801,6 +1029,5 @@ function SummaryOrdersPage() {
     </div>
   );
 }
-
 
 export default SummaryOrdersPage;
