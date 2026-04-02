@@ -3,7 +3,7 @@
  * Component: ManufacturingOrders
  * Description: Trang quản lý danh sách lệnh sản xuất của bếp trung tâm.
  *             Cho phép xem, tìm kiếm và lọc các lệnh sản xuất theo trạng thái.
- * Author: Tuan Tran
+ * Author: Tuan Tran ,DatPhucTran
  * Created: 2026-03-08
  *
  * Features:
@@ -15,7 +15,7 @@
  */
 
 // ================= IMPORT =================
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import { kitchenServices, type ManufacturingOrderResponse, type ManuOrderStatus 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { useGlobalListPageSize } from '@/hooks/useGlobalListPageSize';
 
 // ================= TYPES =================
 
@@ -53,14 +54,22 @@ const formatDateTime = (value: string | null) => {
 // ================= COMPONENT =================
 function ManufacturingOrders() {
   // ================= STATE =================
+  // manufacturingOrder: danh sách lệnh sản xuất lấy từ API
   const [manufacturingOrder, setManufacturingOrder] = useState<ManufacturingOrderResponse[]>([]);
+  // search: từ khóa tìm kiếm (mã lệnh / tên sản phẩm)
   const [search, setSearch] = useState('');
+  // statusFilter: trạng thái đang lọc (ALL / PLANNED / COOKING / COMPLETED)
   const [statusFilter, setStatusFilter] = useState<ManuOrderStatus | 'ALL'>('ALL');
+  // page: trang hiện tại để phân trang ở UI
   const [page, setPage] = useState(1);
+  // isLoading: trạng thái loading khi fetch/sync dữ liệu
   const [isLoading, setIsLoading] = useState(false);
-  const PAGE_SIZE = 10;
+  const pageSize = useGlobalListPageSize();
+  // selectedOrder: lệnh sản xuất đang được chọn để cập nhật trạng thái
   const [selectedOrder, setSelectedOrder] = useState<ManufacturingOrderResponse | null>(null);
+  // isDialogOpen: mở/đóng modal xác nhận cập nhật trạng thái
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // isUpdating: đang gửi request cập nhật trạng thái (disable nút submit)
   const [isUpdating, setIsUpdating] = useState(false);
 
   // ================= API =================
@@ -123,11 +132,18 @@ function ManufacturingOrders() {
     setPage(1);
   }, [search, statusFilter]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE)), [filteredOrders.length]);
+  useLayoutEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredOrders.length / pageSize)),
+    [filteredOrders.length, pageSize],
+  );
   const paginatedOrders = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredOrders.slice(start, start + PAGE_SIZE);
-  }, [filteredOrders, page]);
+    const start = (page - 1) * pageSize;
+    return filteredOrders.slice(start, start + pageSize);
+  }, [filteredOrders, page, pageSize]);
 
   const stats = useMemo(() => ({
     total:     manufacturingOrder.length,
@@ -356,7 +372,7 @@ function ManufacturingOrders() {
                   ) : (
                     <>
                       <span className="font-semibold text-stone-700">
-                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredOrders.length)}
+                        {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredOrders.length)}
                       </span>{' '}
                       / {filteredOrders.length} lệnh
                     </>

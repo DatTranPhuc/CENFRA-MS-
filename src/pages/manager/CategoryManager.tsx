@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,15 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
-import { Tag, Plus, Pencil, Trash2, Search, CheckCircle2, XCircle } from 'lucide-react';
+import { Tag, Plus, Pencil, Trash2, Search, CheckCircle2, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { managerServices, type CategoryResponse, type ProductsResponse } from '@/services/managerServices';
 import { toast } from 'sonner';
+import { useGlobalListPageSize } from '@/hooks/useGlobalListPageSize';
 
 type CategoryStatus = 'ACTIVE' | 'INACTIVE';
 type CategoryFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 function CategoryManager() {
+  const pageSize = useGlobalListPageSize();
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [products, setProducts] = useState<ProductsResponse[]>([]);
 
@@ -24,6 +26,7 @@ function CategoryManager() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryResponse | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<CategoryResponse | null>(null);
+  const [page, setPage] = useState(1);
 
   const {
     register,
@@ -113,6 +116,24 @@ function CategoryManager() {
     return list;
   }, [categories, search, statusFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredCategories.length / pageSize));
+  const paginatedCategories = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredCategories.slice(start, start + pageSize);
+  }, [filteredCategories, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useLayoutEffect(() => {
+    setPage(1);
+  }, [pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   const openDelete = (category: CategoryResponse) => {
     setCategoryToDelete(category);
     setDeleteConfirmOpen(true);
@@ -194,63 +215,65 @@ function CategoryManager() {
 
       {/* ── Toolbar ── */}
       <div className="flex flex-col gap-3 rounded-xl border border-amber-100 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full max-w-md flex-none">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-400" />
-          <Input
-            placeholder="Tìm theo tên danh mục..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-full rounded-md border border-amber-200 bg-amber-50/40 pl-9 pr-3 text-xs text-stone-800 placeholder:text-stone-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60"
-          />
-        </div>
+        <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative w-full max-w-md flex-none">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-400" />
+            <Input
+              placeholder="Tìm theo tên danh mục..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 w-full rounded-md border border-amber-200 bg-amber-50/40 pl-9 pr-3 text-xs text-stone-800 placeholder:text-stone-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60"
+            />
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">
-            Bộ lọc trạng thái
-          </span>
-          <div className="flex gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant={statusFilter === 'ALL' ? 'default' : 'outline'}
-              className={cn(
-                'h-8 rounded-full border-amber-200 px-3 text-xs',
-                statusFilter === 'ALL'
-                  ? 'bg-amber-500 text-white hover:bg-amber-600'
-                  : 'bg-white text-amber-800 hover:bg-amber-50'
-              )}
-              onClick={() => setStatusFilter('ALL')}
-            >
-              Tất cả
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={statusFilter === 'ACTIVE' ? 'default' : 'outline'}
-              className={cn(
-                'h-8 rounded-full border-emerald-200 px-3 text-xs',
-                statusFilter === 'ACTIVE'
-                  ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                  : 'bg-white text-emerald-700 hover:bg-emerald-50'
-              )}
-              onClick={() => setStatusFilter('ACTIVE')}
-            >
-              Đang sử dụng
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={statusFilter === 'INACTIVE' ? 'default' : 'outline'}
-              className={cn(
-                'h-8 rounded-full border-rose-200 px-3 text-xs',
-                statusFilter === 'INACTIVE'
-                  ? 'bg-rose-500 text-white hover:bg-rose-600'
-                  : 'bg-white text-rose-700 hover:bg-rose-50'
-              )}
-              onClick={() => setStatusFilter('INACTIVE')}
-            >
-              Ngưng dùng
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-amber-700/80">
+              Bộ lọc trạng thái
+            </span>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={statusFilter === 'ALL' ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 rounded-full border-amber-200 px-3 text-xs',
+                  statusFilter === 'ALL'
+                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                    : 'bg-white text-amber-800 hover:bg-amber-50'
+                )}
+                onClick={() => setStatusFilter('ALL')}
+              >
+                Tất cả
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={statusFilter === 'ACTIVE' ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 rounded-full border-emerald-200 px-3 text-xs',
+                  statusFilter === 'ACTIVE'
+                    ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                    : 'bg-white text-emerald-700 hover:bg-emerald-50'
+                )}
+                onClick={() => setStatusFilter('ACTIVE')}
+              >
+                Đang sử dụng
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={statusFilter === 'INACTIVE' ? 'default' : 'outline'}
+                className={cn(
+                  'h-8 rounded-full border-rose-200 px-3 text-xs',
+                  statusFilter === 'INACTIVE'
+                    ? 'bg-rose-500 text-white hover:bg-rose-600'
+                    : 'bg-white text-rose-700 hover:bg-rose-50'
+                )}
+                onClick={() => setStatusFilter('INACTIVE')}
+              >
+                Ngưng dùng
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -277,10 +300,12 @@ function CategoryManager() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-100/60">
-                {filteredCategories.map((category, index) => {
+                {paginatedCategories.map((category, index) => {
                   return (
                     <tr key={category.categoryId} className="group transition hover:bg-amber-50/40">
-                      <td className="px-6 py-4 font-mono text-xs text-amber-700">#{index + 1}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-amber-700">
+                        #{(page - 1) * pageSize + index + 1}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-sm font-semibold text-stone-900">{category.categoryName}</span>
@@ -348,6 +373,41 @@ function CategoryManager() {
               <Search className="mb-1 size-10 opacity-30" />
               <p className="text-sm font-medium">Không tìm thấy danh mục nào phù hợp</p>
               <p className="text-xs text-amber-700/70">Hãy thử lại với từ khóa khác hoặc thêm danh mục mới.</p>
+            </div>
+          )}
+
+          {filteredCategories.length > pageSize && (
+            <div className="flex items-center justify-between border-t border-amber-100 bg-amber-50/30 px-5 py-3">
+              <p className="text-xs text-stone-500">
+                {filteredCategories.length === 0
+                  ? '0'
+                  : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filteredCategories.length)}`}{' '}
+                / {filteredCategories.length} danh mục
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 border-amber-200"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-label="Trang trước"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 border-amber-200"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  aria-label="Trang sau"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

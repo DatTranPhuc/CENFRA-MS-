@@ -1,9 +1,13 @@
 /**
  * File: InventoryMovementsPage.tsx
- * Description: Trang "Biến động kho" cho manager - hiển thị lịch sử giao dịch tồn kho (sổ cái kho).
+ * Description: Trang Biến động kho (Manager) — nhật ký nhập/xuất/điều chỉnh từ API inventory transactions.
+ * Author: Tuan Tran
+ * Created: 2026
  */
 
-import { useEffect, useMemo, useState } from 'react';
+// ================= IMPORTS =================
+
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -23,7 +27,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { kitchenServices, type InventoryTransactionResponse, type TransactionType } from '@/services/kitchenServices';
+import { useGlobalListPageSize } from '@/hooks/useGlobalListPageSize';
 
+// ================= HELPERS (chuẩn hoá loại giao dịch) =================
+// BE có thể trả `transactionType` lệch format hoặc thiếu — dùng thêm `referenceCode` để suy luận.
+
+/** Chuẩn hoá chuỗi từ API về IMPORT | EXPORT | ADJUST hoặc null. */
 function normalizeTxType(value: string | null | undefined): TransactionType | null {
   if (!value) return null;
   const key = value
@@ -43,6 +52,7 @@ function normalizeTxType(value: string | null | undefined): TransactionType | nu
   return null;
 }
 
+/** Suy luận loại từ mã tham chiếu (prefix ADJ/IMP/EXP…) khi field type không tin được. */
 function inferTxTypeFromReferenceCode(referenceCode: string | null | undefined): TransactionType | null {
   if (!referenceCode) return null;
   const code = referenceCode.trim().toUpperCase();
@@ -53,12 +63,11 @@ function inferTxTypeFromReferenceCode(referenceCode: string | null | undefined):
   return null;
 }
 
+/** Loại hiển thị/lọc: ưu tiên type từ BE, không có thì đoán từ mã, cuối cùng ADJUST. */
 function getTxType(tx: Pick<InventoryTransactionResponse, 'transactionType' | 'referenceCode'>): TransactionType {
   // Ưu tiên type từ backend, fallback suy luận từ mã tham chiếu.
   return normalizeTxType(tx.transactionType) ?? inferTxTypeFromReferenceCode(tx.referenceCode) ?? 'ADJUST';
 }
-
-const PAGE_SIZE = 10;
 
 const FILTER_OPTIONS: (TransactionType | 'ALL')[] = ['ALL', 'IMPORT', 'EXPORT', 'ADJUST'];
 
@@ -81,6 +90,7 @@ const formatDateTime = (value: string | null | undefined) => {
   });
 };
 
+/** Badge màu theo loại giao dịch (cột Loại trong bảng). */
 function TxBadge({ type }: { type: string }) {
   const transactionType = normalizeTxType(type) ?? 'ADJUST';
 
@@ -107,8 +117,13 @@ function TxBadge({ type }: { type: string }) {
   );
 }
 
+/**
+ * Thanh phân trang (trang 1-based trên UI, bên trong map sang page 0-based cho state).
+ * Nhiều trang: rút gọn dạng 1 … window … last để khỏi chen hàng nút.
+ */
 const PaginationBar = ({
   page,
+  pageSize,
   totalPages,
   totalItems,
   unit,
@@ -118,6 +133,7 @@ const PaginationBar = ({
   onPage,
 }: {
   page: number;
+  pageSize: number;
   totalPages: number;
   totalItems: number;
   unit: string;
@@ -150,7 +166,7 @@ const PaginationBar = ({
   return (
     <div className="flex items-center justify-between border-t border-amber-100 bg-amber-50/30 px-5 py-3">
       <p className="text-xs text-stone-500">
-        {(page) * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalItems)} / {totalItems} {unit}
+        {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalItems)} / {totalItems} {unit}
       </p>
       <div className="flex items-center gap-1">
         <button
@@ -203,18 +219,34 @@ const PaginationBar = ({
   );
 };
 
+/**
+ * InventoryMovementsPage Component
+ * - GET `/inventory-transactions` (sort mới nhất), nếu có nhiều `totalPages` thì gọi thêm và gộp `items`
+ * - Lọc theo loại + từ khoá (mã GD, sản phẩm, mã lô) trên FE
+ * - Phân trang client theo `useGlobalListPageSize` (page 0-based trong state)
+ */
 export default function InventoryMovementsPage() {
+  // ================= STATE =================
+
+  const pageSize = useGlobalListPageSize();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // page: 0-based (client-side pagination sau khi đã lọc)
+  /** Trang hiện tại (0-based) sau khi filter — slice `filteredTransactions`. */
   const [page, setPage] = useState(0);
+  /** Toàn bộ giao dịch đã tải từ server (đã gộp multi-page nếu cần). */
   const [transactions, setTransactions] = useState<InventoryTransactionResponse[]>([]);
 
-  // lọc client-side (áp dụng trên toàn bộ dữ liệu đã tải)
+  /** Tìm kiếm + lọc loại — áp dụng trên mảng `transactions`. */
   const [searchCode, setSearchCode] = useState('');
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'ALL'>('ALL');
 
+  // ================= API =================
+
+  /**
+   * Tải toàn bộ nhật ký: page 0 trước, rồi gọi page 1..N nếu `totalPages` > 1.
+   * Dùng `pageSize` làm size mỗi request (đồng bộ với cấu hình phân trang global).
+   */
   const fetchAll = async () => {
     setLoading(true);
     setError(null);
@@ -222,7 +254,7 @@ export default function InventoryMovementsPage() {
     try {
       const first = await kitchenServices.getInventoryTransaction({
         sort: 'transactionDate,desc',
-        size: PAGE_SIZE,
+        size: pageSize,
         page: 0,
       });
 
@@ -245,7 +277,7 @@ export default function InventoryMovementsPage() {
         Array.from({ length: total - 1 }, (_, i) =>
           kitchenServices.getInventoryTransaction({
             sort: 'transactionDate,desc',
-            size: PAGE_SIZE,
+            size: pageSize,
             page: i + 1,
           }),
         ),
@@ -264,11 +296,22 @@ export default function InventoryMovementsPage() {
     }
   };
 
+  // ================= EFFECT =================
+
+  /** `pageSize` thay đổi (Admin cấu hình): refetch full list. */
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pageSize]);
 
+  /** Đổi kích thước trang: về trang đầu slice. */
+  useLayoutEffect(() => {
+    setPage(0);
+  }, [pageSize]);
+
+  // ================= COMPUTED =================
+
+  /** Lọc type + search, sort lại theo ngày giảm dần (ổn định thêm transactionId). */
   const filteredTransactions = useMemo(() => {
     let data = transactions;
     if (typeFilter !== 'ALL') {
@@ -296,23 +339,26 @@ export default function InventoryMovementsPage() {
   }, [transactions, searchCode, typeFilter]);
 
   const totalElements = filteredTransactions.length;
-  const totalPages = Math.max(1, Math.ceil(totalElements / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
 
+  /** Đổi filter hoặc ô tìm kiếm: luôn về trang 1 của bảng. */
   useEffect(() => {
-    // Khi filter/search thay đổi thì quay về trang đầu cho dễ hiểu
     setPage(0);
   }, [searchCode, typeFilter]);
 
+  /** Tránh page vượt quá sau khi filter thu hẹp danh sách. */
   useEffect(() => {
     if (page > totalPages - 1) setPage(Math.max(0, totalPages - 1));
   }, [page, totalPages]);
 
   const displayTransactions = useMemo(
-    () => filteredTransactions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [filteredTransactions, page],
+    () => filteredTransactions.slice(page * pageSize, (page + 1) * pageSize),
+    [filteredTransactions, page, pageSize],
   );
 
   const today = useMemo(() => new Date(), []);
+
+  // ================= RENDER =================
 
   if (error) {
     return (
@@ -351,7 +397,7 @@ export default function InventoryMovementsPage() {
         </CardHeader>
       </Card>
 
-      {/* Toolbar (giống kiểu trang trong supply) */}
+      {/* Toolbar  */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center p-4 bg-white rounded-xl border border-amber-100 shadow-sm">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-400" />
@@ -461,6 +507,7 @@ export default function InventoryMovementsPage() {
         {totalElements > 0 && (
           <PaginationBar
             page={page}
+            pageSize={pageSize}
             totalPages={totalPages}
             totalItems={totalElements}
             unit="giao dịch"

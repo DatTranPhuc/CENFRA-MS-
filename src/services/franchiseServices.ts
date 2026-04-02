@@ -24,7 +24,22 @@ export interface OrderDetailResponse {
   unit?: string;
   unitName?: string;
   quantity: number;
+  /** BE có thể trả thêm */
+  unitPrice?: number;
+  lineTotal?: number;
+  note?: string;
 }
+
+/** Trạng thái đơn từ API (mở rộng theo BE / supply). */
+type StoreOrderStatusExtended =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'CONSOLIDATED'
+  | 'CANCELLED'
+  | 'IN_TRANSIT'
+  | 'DONE'
+  | 'AWAITING_DELIVERY'
+  | 'DELIVERY_ISSUE_PENDING';
 
 // Thông tin đơn hàng chi nhánh (Giữ tên cũ cho các page khác)
 export interface OrderResponse<T> {
@@ -32,53 +47,40 @@ export interface OrderResponse<T> {
   orderCode: string;
   storeId: number;
   storeName: string;
+  /** Mã cửa hàng / chi nhánh (BE mới) */
+  storeCode?: string;
   orderDate: string;
   deliveryDate?: string;
-  status: 'PENDING' | 'APPROVED' | 'CONSOLIDATED' | 'CANCELLED' | 'IN_TRANSIT' | 'DONE';
+  /** ISO — BE có thể tách với orderDate */
+  createdAt?: string;
+  updatedAt?: string;
+  approvedAt?: string;
+  approvedByUsername?: string;
+  /** Ghi chú đơn (BE có thể dùng orderNote hoặc note) */
+  orderNote?: string;
+  note?: string;
+  /** Tổng tiền ước tính (nếu BE tính) */
+  totalAmount?: number;
+  status: StoreOrderStatusExtended;
   details: T;
 }
 
-// Chi tiết sản phẩm trong phiếu xuất kho (Dựa trên JSON mới)
-export interface ExportNoteItem {
-  productId: number;
-  productName: string;
-  batchCode: string;
-  expiryDate: string;
-  quantity: number;
-  unitName: string;
+/** Ngày đặt hiển thị: ưu tiên orderDate, sau đó createdAt. */
+export function resolveOrderPlacedAt(order: Pick<OrderResponse<unknown>, 'orderDate' | 'createdAt'>): string | undefined {
+  return order.orderDate?.trim() || order.createdAt?.trim() || undefined;
 }
 
-// Thông tin phiếu xuất kho (Dựa trên JSON mới - Phân trang)
-export interface ExportNotesResponse {
-  items: ExportNoteItem[];
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  first: boolean;
-  last: boolean;
+/** Ghi chú đơn: BE có thể gửi orderNote hoặc note. */
+export function getOrderNoteText(order: Pick<OrderResponse<unknown>, 'orderNote' | 'note'>): string | undefined {
+  const t = (order.orderNote ?? order.note)?.trim();
+  return t || undefined;
 }
-
-// Trạng thái đơn hàng (Legacy)
-export type StoreOrderStatus = 'PENDING' | 'APPROVED' | 'CANCELLED';
-export type ExportStatus = 'READY' | 'SHIPPED' | 'CANCEL';
 
 /**
- * franchiseServices
- * - Quản lý đơn hàng (Lấy danh sách, tạo mới)
- * - Quản lý phiếu xuất kho
+ * franchiseServices — đơn hàng chi nhánh (phiếu xuất dùng `supplyServices`).
  */
-
 export const franchiseServices = {
   // ================= API =================
-
-  /**
-   * Lấy danh sách tất cả các đơn hàng trong hệ thống (Legacy - trả về mảng)
-   */
-  getAllOrders: async () => {
-    const response = await http.get<Response<OrderResponse<OrderDetailResponse[]>[]>>('/orders');
-    return response.data;
-  },
 
   /**
    * Lấy danh sách đơn hàng chi nhánh (hỗ trợ phân trang)
@@ -87,21 +89,6 @@ export const franchiseServices = {
     const response = await http.get<Response<PaginatedResponse<OrderResponse<OrderDetailResponse[]>[]>>>('/orders', {
       params: { page, size },
     });
-    return response.data;
-  },
-
-  /**
-   * Tạo đơn hàng mới từ chi nhánh gửi về bếp trung tâm
-   */
-  createOrders: async (body: {
-    storeId: number;
-    deliveryDate: string;
-    details: {
-      productId: number;
-      quantity: number;
-    }[];
-  }) => {
-    const response = await http.post<Response<OrderResponse<OrderDetailResponse[]>[]>>('/orders', body);
     return response.data;
   },
 
@@ -129,14 +116,6 @@ export const franchiseServices = {
    */
   getOrderById: async (id: number) => {
     const response = await http.get<Response<OrderResponse<OrderDetailResponse[]>>>(`/orders/${id}`);
-    return response.data;
-  },
-  /**
-   * Lấy danh sách phiếu xuất kho và thông tin lô hàng
-   * @returns {Promise<Response<ExportNotesResponse>>}
-   */
-  getExportNote: async () => {
-    const response = await http.get<Response<ExportNotesResponse>>('/export-notes');
     return response.data;
   },
 

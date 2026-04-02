@@ -1,7 +1,7 @@
 /**
  * File: ReportsPage.tsx
  * Description: Trang báo cáo quản lý kho trung tâm, hiển thị tồn kho, lô sắp hết hạn và giao dịch.
- * Author: Tuan Tran
+ * Author:
  * Created: 2026
  */
 
@@ -80,9 +80,23 @@ function ReportsPage() {
       const stockItems =
         getItems<InventoryReportResponse>({ data: stockPayload as never }) ??
         (stockPayload as { data?: { items?: InventoryReportResponse[] } })?.data?.items ?? [];
+      // Để đồng nhất với `ManagerDashboard` (cộng `currentQuantity` từ lô), ưu tiên cộng trực tiếp từ `productBatch`.
+      // Fallback sang `totalStock` nếu BE không trả `productBatch`.
       setTotalStockUnits(
         Array.isArray(stockItems)
-          ? stockItems.reduce((sum, i) => sum + (Number(i?.totalStock) || 0), 0)
+          ? stockItems.reduce((sum, i) => {
+              const productBatches = (i as unknown as { productBatch?: { currentQuantity?: number }[] }).productBatch;
+              if (Array.isArray(productBatches) && productBatches.length > 0) {
+                return (
+                  sum +
+                  productBatches.reduce(
+                    (s, pb) => s + (Number(pb?.currentQuantity) || 0),
+                    0
+                  )
+                );
+              }
+              return sum + (Number(i?.totalStock) || 0);
+            }, 0)
           : 0
       );
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { kitchenServices, type InventoryReceiptApi, type ProductBatchesResponse 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { useGlobalListPageSize } from '@/hooks/useGlobalListPageSize';
 
 type ReceiptStatus = 'DRAFT' | 'COMPLETED';
 
@@ -32,20 +33,33 @@ const formatDateTime = (value: string | null) => {
 };
 
 function Receipts() {
+  // ================= STATE =================
+  // receipts: danh sách phiếu nhập kho lấy từ API
   const [receipts, setReceipts] = useState<InventoryReceiptApi[]>([]);
+  // search: từ khóa tìm kiếm theo mã biên lai hoặc ngày
   const [search, setSearch] = useState('');
+  // statusFilter: bộ lọc trạng thái (ALL / DRAFT / COMPLETED)
   const [statusFilter, setStatusFilter] = useState<ReceiptStatus | 'ALL'>('ALL');
+  // isDetailOpen: mở/đóng modal chi tiết phiếu nhập kho
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  // selectedReceipt: phiếu đang được chọn để render chi tiết
   const [selectedReceipt, setSelectedReceipt] = useState<InventoryReceiptApi | null>(null);
+  // isLoadingList: đang load danh sách phiếu (để disable refresh)
   const [isLoadingList, setIsLoadingList] = useState(false);
+  // isLoadingDetail: đang load dữ liệu chi tiết trong modal
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  // page: trang hiện tại cho phân trang UI
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const pageSize = useGlobalListPageSize();
 
   // Modal tạo phiếu nhập kho (nhập kho hàng loạt) – di chuyển từ trang Lô sản phẩm
+  // isStockInModalOpen: mở/đóng modal nhập kho hàng loạt
   const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
+  // productBatches: danh sách lô lấy từ API (lô đang chờ nhập kho)
   const [productBatches, setProductBatches] = useState<ProductBatchesResponse[]>([]);
+  // selectedBatchIds: danh sách batchId user đang chọn để nhập kho
   const [selectedBatchIds, setSelectedBatchIds] = useState<number[]>([]);
+  // isLoadingBatches: đang tải danh sách lô (khi mở modal hoặc khi chưa có dữ liệu)
   const [isLoadingBatches, setIsLoadingBatches] = useState(false);
 
   const {
@@ -65,6 +79,7 @@ function Receipts() {
     [receipts]
   );
 
+  // filteredReceipts: lọc danh sách theo statusFilter + search (lọc phía client)
   const filteredReceipts = useMemo(() => {
     let data = receipts;
 
@@ -84,24 +99,37 @@ function Receipts() {
     return data;
   }, [search, statusFilter, receipts]);
 
+  // ================= EFFECT =================
+  // reset về trang 1 khi đổi search hoặc đổi statusFilter
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter]);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredReceipts.length / PAGE_SIZE)),
-    [filteredReceipts.length]
-  );
-  const paginatedReceipts = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredReceipts.slice(start, start + PAGE_SIZE);
-  }, [filteredReceipts, page]);
+  // reset về trang 1 khi đổi pageSize (kích thước trang)
+  useLayoutEffect(() => {
+    setPage(1);
+  }, [pageSize]);
 
+  // totalPages: số trang sau khi lọc
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredReceipts.length / pageSize)),
+    [filteredReceipts.length, pageSize]
+  );
+
+  // paginatedReceipts: slice dữ liệu cho trang hiện tại
+  const paginatedReceipts = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredReceipts.slice(start, start + pageSize);
+  }, [filteredReceipts, page, pageSize]);
+
+  // ================= HANDLER =================
+  // handleCloseDetail: đóng modal chi tiết và reset selectedReceipt
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
     setSelectedReceipt(null);
   };
 
+  // handleOpenDetail: mở modal chi tiết và gọi API lấy chi tiết theo receiptId
   const handleOpenDetail = async (receipt: InventoryReceiptApi) => {
     setSelectedReceipt(receipt);
     setIsDetailOpen(true);
@@ -118,6 +146,8 @@ function Receipts() {
     }
   };
 
+  // ================= API =================
+  // fetchProductBatches: tải danh sách lô sản phẩm từ API để phục vụ nhập kho
   const fetchProductBatches = async () => {
     setIsLoadingBatches(true);
     try {
@@ -131,6 +161,7 @@ function Receipts() {
     }
   };
 
+  // handleOpenStockIn: mở modal nhập kho và tự động chọn các lô WAITING_FOR_STOCK
   const handleOpenStockIn = async () => {
     if (productBatches.length === 0) {
       await fetchProductBatches();
@@ -148,12 +179,14 @@ function Receipts() {
     setIsStockInModalOpen(true);
   };
 
+  // handleToggleSelectBatch: chọn/tắt 1 lô để chuẩn bị nhập kho
   const handleToggleSelectBatch = (batchId: number) => {
     const isSelecting = !selectedBatchIds.includes(batchId);
     setSelectedBatchIds((prev) => (isSelecting ? [...prev, batchId] : prev.filter((id) => id !== batchId)));
     if (!isSelecting) clearErrors(`quantities.${batchId}`);
   };
 
+  // handleToggleSelectAll: chọn tất cả lô WAITING_FOR_STOCK hoặc bỏ chọn hết
   const handleToggleSelectAll = () => {
     const waitingBatchIds = productBatches.filter((b) => b.status === 'WAITING_FOR_STOCK').map((b) => b.batchId);
     if (selectedBatchIds.length === waitingBatchIds.length) {
@@ -164,6 +197,7 @@ function Receipts() {
     }
   };
 
+  // handleConfirmStockIn: submit nhập kho hàng loạt (manualStockIn) theo selectedBatchIds
   const handleConfirmStockIn = async (data: { quantities: Record<string, number> }) => {
     const finalData = selectedBatchIds.map((id) => ({
       productBatchId: id,
@@ -182,6 +216,8 @@ function Receipts() {
     }
   };
 
+  // ================= API =================
+  // fetchReceipts: tải lại danh sách phiếu nhập kho
   const fetchReceipts = async () => {
     setIsLoadingList(true);
     try {
@@ -196,16 +232,19 @@ function Receipts() {
     }
   };
 
+  // ================= EFFECT (Initial Load) =================
+  // initial load: mở trang sẽ gọi fetchReceipts() để có dữ liệu hiển thị
   useEffect(() => {
     fetchReceipts();
   }, []);
 
+  // ================= RENDER =================
   return (
     <div className="h-full w-full">
       <Card className="overflow-hidden border-amber-200/60 bg-white shadow-md">
 
         {/* ── Header ── */}
-        <CardHeader className="flex flex-row items-center justify-between border-b border-amber-100 bg-amber-50 px-6 py-5">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-amber-100 bg-gradient-to-r from-amber-50/80 to-orange-50/60 px-6 py-5">
           <div className="flex flex-col gap-1">
             <CardTitle className="flex items-center gap-2 text-xl font-bold text-amber-900">
               <FileText className="size-6 text-amber-500" />
@@ -246,8 +285,8 @@ function Receipts() {
         <CardContent className="space-y-5 p-6">
 
           {/* ── Toolbar ── */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-sm flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:max-w-sm sm:flex-1">
               <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-amber-500" />
               <Input
                 placeholder="Tìm theo mã biên lai, ngày..."
@@ -256,7 +295,7 @@ function Receipts() {
                 className="border-amber-200 bg-amber-50/40 pl-9 text-xs placeholder:text-xs placeholder:text-gray-400 focus:border-amber-400 focus:ring-amber-200"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex overflow-hidden rounded-full border border-amber-200 bg-amber-50 text-xs shadow-sm">
                 {FILTER_OPTIONS.map((opt) => (
                   <button
@@ -273,21 +312,13 @@ function Receipts() {
                   </button>
                 ))}
               </div>
-              <Button
-                type="button"
-                size="sm"
-                className="rounded-full bg-amber-600 px-4 text-[11px] font-semibold text-white hover:bg-amber-700"
-                onClick={handleOpenStockIn}
-              >
-                + Tạo phiếu nhập kho
-              </Button>
             </div>
 
-            {/* Nút phải */}
+            <div className="flex-1" />
             <Button
               type="button"
               size="sm"
-              className="h-full shrink-0 rounded-full bg-amber-600 px-5 text-[11px] font-semibold text-white hover:bg-amber-700"
+              className="shrink-0 rounded-full bg-amber-600 px-5 text-[11px] font-semibold text-white hover:bg-amber-700"
               onClick={handleOpenStockIn}
             >
               + Tạo phiếu nhập kho
@@ -373,8 +404,8 @@ function Receipts() {
               {filteredReceipts.length > 0 && (
                 <div className="flex items-center justify-between border-t border-amber-100 bg-amber-50/30 px-5 py-3">
                   <p className="text-xs text-stone-500">
-                    {filteredReceipts.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
-                    {Math.min(page * PAGE_SIZE, filteredReceipts.length)} /{' '}
+                    {filteredReceipts.length === 0 ? 0 : (page - 1) * pageSize + 1}–
+                    {Math.min(page * pageSize, filteredReceipts.length)} /{' '}
                     <span className="font-semibold text-stone-700">{filteredReceipts.length}</span> phiếu
                   </p>
                   <div className="flex items-center gap-1">
