@@ -35,31 +35,32 @@ const buildSidebarFooter = (params: {
   const { roleLabel, userName, user, logout, contextRoleName } = params;
   const effectiveRole = contextRoleName ?? roleLabel;
   const isFranchiseStore = roleLabel === Role.FRANCHISE_STORE_STAFF;
-
   const mainLabel = isFranchiseStore ? getStoreDisplayName(userName, user) : userName || 'Người dùng';
   const roleText = translateRole(effectiveRole);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-2">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm font-medium text-white">
-          {userName?.charAt(0) ?? 'C'}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground" title={mainLabel}>
-            {mainLabel}
-          </p>
-          {roleText && (
-            <p className="truncate text-xs text-muted-foreground" title={roleText}>
-              {roleText}
+    <div className="space-y-3">
+      <div className="rounded-lg border border-white/10 bg-white/[0.06] p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground shadow-sm">
+            {userName?.charAt(0)?.toUpperCase() ?? 'C'}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-sidebar-foreground" title={mainLabel}>
+              {mainLabel}
             </p>
-          )}
+            {roleText && (
+              <p className="truncate text-xs text-sidebar-foreground/60" title={roleText}>
+                {roleText}
+              </p>
+            )}
+          </div>
         </div>
       </div>
       <button
         type="button"
         onClick={logout}
-        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700"
+        className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-sidebar-foreground/80 transition hover:bg-white/[0.08] hover:text-white"
       >
         <LogOut className="size-4 shrink-0" />
         Đăng xuất
@@ -77,15 +78,11 @@ export default function DashboardLayout({ children, navItems, roleLabel }: Dashb
   const sidebarFooter = buildSidebarFooter({ roleLabel, userName, user, logout, contextRoleName });
 
   return (
-    <div className="flex min-h-svh bg-[#f8fafc] text-foreground">
-      {/* Sidebar */}
+    <div className="app-surface flex min-h-svh text-foreground">
       <SideBarLayout items={navItems} activeItem={location.pathname} footerContent={sidebarFooter} />
-      {/* Main content */}
-      <div className="ml-64 flex flex-1 flex-col">
-        {/* Header */}
+      <div className="ml-72 flex min-w-0 flex-1 flex-col">
         <HeaderLayout welcomeHighlight={welcomeHighlight} />
-        {/* Page content */}
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-auto px-5 py-5 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

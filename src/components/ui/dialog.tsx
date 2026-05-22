@@ -13,10 +13,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50"
-        onClick={() => onOpenChange(false)}
-      />
+      <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
       <div className="relative z-50">{children}</div>
     </div>
   );
@@ -35,7 +32,7 @@ export function DialogContent({
   return (
     <div
       className={cn(
-        'relative w-full max-w-2xl rounded-2xl border border-amber-200/60 bg-white p-8 shadow-xl',
+        'relative w-full max-w-2xl rounded-lg border border-border bg-white p-8 shadow-2xl shadow-slate-950/20',
         className
       )}
       {...props}
@@ -44,7 +41,7 @@ export function DialogContent({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-full bg-amber-50 p-1.5 text-amber-700 shadow-sm transition hover:bg-amber-100"
+          className="absolute right-4 top-4 rounded-md bg-secondary p-1.5 text-muted-foreground shadow-sm transition hover:text-foreground"
         >
           <X className="size-4" />
         </button>

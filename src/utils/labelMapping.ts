@@ -1,14 +1,11 @@
 export const STATUS_LABEL_MAP: Record<string, string> = {
-  // Đơn hàng chi nhánh
   PENDING: 'Chờ duyệt',
   APPROVED: 'Đã duyệt',
   CONSOLIDATED: 'Đã gộp',
   CANCELLED: 'Đã hủy',
   AWAITING_DELIVERY: 'Chờ giao hàng',
-  DELIVERY_ISSUE_PENDING: 'Chờ xử lí sự cố',
+  DELIVERY_ISSUE_PENDING: 'Chờ xử lý sự cố',
   DELIVERY_FAILED: 'Giao hàng thất bại',
-
-  // Phiếu xuất / giao nhận (theo yêu cầu mapping chuẩn)
   READY: 'Sẵn sàng',
   IN_TRANSIT: 'Đang giao',
   SHIPPING: 'Đang giao',
@@ -18,20 +15,14 @@ export const STATUS_LABEL_MAP: Record<string, string> = {
   COOKING: 'Đang nấu',
   CANCEL: 'Đã hủy',
   DONE: 'Đã nhận',
-
-  // Trạng thái phiếu / chứng từ khác
   DRAFT: 'Nháp',
-
-  // Lô sản phẩm / tồn kho
   AVAILABLE: 'Khả dụng',
   OUT_OF_STOCK: 'Hết hàng',
   EXPIRED: 'Hết hạn',
   WAITING_FOR_STOCK: 'Chờ nhập kho',
-
-  // Vấn đề giao nhận (Delivery Issue)
   PENDING_REVIEW: 'Chờ xử lý',
   REJECTED: 'Đã từ chối',
-  DAMAGED: 'Hàng vỡ / hỏng',
+  DAMAGED: 'Hàng hỏng',
   MISSING_ITEMS: 'Thiếu hàng',
   WRONG_ITEMS: 'Sai hàng',
   QUALITY_FAILED: 'Chất lượng kém',
@@ -39,8 +30,6 @@ export const STATUS_LABEL_MAP: Record<string, string> = {
   REFUSED_DELIVERY: 'Từ chối nhận',
   CREATE_REPLACEMENT_ORDER: 'Tạo đơn mới',
   REFUND: 'Hoàn tiền',
-
-  // Trạng thái chung bật/tắt
   ACTIVE: 'Hoạt động',
   INACTIVE: 'Ngừng hoạt động',
 };
