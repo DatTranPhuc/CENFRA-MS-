@@ -57,34 +57,34 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
 
   return (
     <div
-      className={cn('mx-auto w-full rounded-xl border border-border bg-white p-7 shadow-2xl shadow-slate-950/10', className)}
+      className={cn('mx-auto w-full rounded-2xl border border-border bg-card p-8 shadow-xl shadow-black/5 ring-1 ring-black/[0.02]', className)}
       {...props}
     >
       <div className="mb-8">
         <div className="mb-6 flex items-center gap-3 lg:hidden">
-          <div className="flex size-12 items-center justify-center rounded-lg border bg-white shadow-sm">
-            <img src="/logo.png" alt="PIZZA FIVE GUYS logo" className="h-10 w-10 object-contain" />
+          <div className="flex size-11 items-center justify-center rounded-xl border bg-white p-1.5 shadow-sm">
+            <img src="/logo.png" alt="PIZZA FIVE GUYS logo" className="h-full w-full object-contain" />
           </div>
           <div>
-            <p className="text-sm font-black uppercase tracking-wide text-foreground">PIZZA FIVE GUYS</p>
-            <p className="text-xs text-muted-foreground">Central kitchen management</p>
+            <p className="text-sm font-extrabold uppercase tracking-wider text-foreground">PIZZA FIVE GUYS</p>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Central kitchen management</p>
           </div>
         </div>
-        <p className="text-sm font-semibold text-primary">Đăng nhập hệ thống</p>
-        <h1 className="mt-2 text-3xl font-black tracking-normal text-foreground">Chào mừng trở lại</h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        <p className="text-xs font-bold uppercase tracking-wider text-primary">Đăng nhập hệ thống</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">Chào mừng trở lại</h1>
+        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
           Sử dụng tài khoản được cấp để truy cập đúng phân hệ vận hành.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-        <FieldGroup className="gap-5">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
+        <FieldGroup className="gap-6">
           <Field>
-            <FieldLabel htmlFor="username" className="text-sm font-semibold text-foreground">
+            <FieldLabel htmlFor="username" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
               Tài khoản
             </FieldLabel>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <div className="relative mt-2">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60">
                 <User className="h-4 w-4" />
               </span>
               <Input
@@ -92,7 +92,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                 type="text"
                 autoComplete="username"
                 placeholder="Nhập tài khoản"
-                className="h-11 pl-10"
+                className="h-11 pl-10 rounded-lg border-border focus-visible:border-primary/80 focus-visible:ring-primary/20 bg-background/50 hover:bg-background/80 transition-all text-sm"
                 {...register('username', {
                   required: 'Username không được để trống',
                   maxLength: {
@@ -107,22 +107,22 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               />
             </div>
             {errors.username && (
-              <FieldDescription className="mt-1 text-xs text-rose-600">{errors.username.message}</FieldDescription>
+              <FieldDescription className="mt-1 text-xs text-rose-500 font-medium">{errors.username.message}</FieldDescription>
             )}
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="password" className="text-sm font-semibold text-foreground">
+            <FieldLabel htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
               Mật khẩu
             </FieldLabel>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <div className="relative mt-2">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60">
                 <Lock className="h-4 w-4" />
               </span>
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground/60 transition hover:bg-secondary hover:text-foreground"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
                 {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
@@ -132,7 +132,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 placeholder="Nhập mật khẩu"
-                className="h-11 pl-10 pr-11"
+                className="h-11 pl-10 pr-11 rounded-lg border-border focus-visible:border-primary/80 focus-visible:ring-primary/20 bg-background/50 hover:bg-background/80 transition-all text-sm"
                 {...register('password', {
                   required: 'Mật khẩu không được để trống',
                   minLength: {
@@ -147,18 +147,23 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               />
             </div>
             {errors.password && (
-              <FieldDescription className="mt-1 text-xs text-rose-600">{errors.password.message}</FieldDescription>
+              <FieldDescription className="mt-1 text-xs text-rose-500 font-medium">{errors.password.message}</FieldDescription>
             )}
           </Field>
 
           {error && (
-            <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="rounded-xl border border-rose-100 bg-rose-50/50 px-4 py-3 text-xs text-rose-600 font-medium animate-shake">
               {error}
             </div>
           )}
 
-          <Field>
-            <Button type="submit" size="lg" className="h-11 w-full justify-between px-4" disabled={isLoading}>
+          <Field className="pt-2">
+            <Button 
+              type="submit" 
+              size="lg" 
+              className="h-11 w-full justify-center gap-2 rounded-lg font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/10 hover:shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300" 
+              disabled={isLoading}
+            >
               <span>{isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}</span>
               <ArrowRight className="size-4" />
             </Button>
