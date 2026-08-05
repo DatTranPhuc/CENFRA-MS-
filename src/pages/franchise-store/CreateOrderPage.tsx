@@ -13,6 +13,7 @@ import { managerServices, type ProductsResponse } from '@/services/managerServic
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useCart } from '@/contexts/CartContext';
+import { createImageFallback, resolveImageUrl } from '@/utils/image';
 
 /**
  * Helper: Định dạng tiền tệ VND
@@ -90,7 +91,7 @@ const CreateOrderPage = () => {
       name: p.productName,
       unitName: p.unitName,
       unitPrice: p.price,
-      imageUrl: p.imageUrl,
+      imageUrl: resolveImageUrl(p.imageUrl),
       orderMultiplier: p.orderMultiplier,
     });
     toast.success(`Đã thêm "${p.productName}" vào giỏ hàng`);
@@ -140,18 +141,18 @@ const CreateOrderPage = () => {
   // ================= RENDER =================
 
   return (
-    <div className="flex min-h-full flex-col bg-stone-50/40">
+    <div className="flex min-h-full flex-col bg-background/30">
 
       {/* ── BỘ LỌC VÀ TÌM KIẾM ── */}
-      <div className="sticky top-0 z-10 border-b border-stone-100 bg-white/95 backdrop-blur-sm px-6 py-4 shadow-sm">
-        <div className="relative mb-3">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-stone-400" />
+      <div className="sticky top-0 z-10 border-b border-border/60 bg-background/80 backdrop-blur-md px-6 py-4.5 shadow-sm shadow-black/[0.01]">
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
           <input
             type="text"
-            placeholder="Tìm món ngon của bạn..."
+            placeholder="Tìm kiếm sản phẩm hoặc nguyên liệu..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-11 w-full rounded-2xl border border-stone-200 bg-stone-50/50 pl-10 pr-4 text-sm text-stone-800 placeholder:text-stone-400 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-200/50 transition-all font-medium"
+            className="h-11 w-full rounded-xl border border-border bg-card pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/80 focus:bg-card focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
           />
         </div>
 
@@ -159,10 +160,10 @@ const CreateOrderPage = () => {
           <button
             onClick={() => setCategoryFilter('ALL')}
             className={cn(
-              'rounded-full border cursor-pointer px-4 py-1.5 text-xs font-bold transition-all',
+              'rounded-full border cursor-pointer px-4.5 py-1.5 text-xs font-bold transition-all duration-300',
               categoryFilter === 'ALL'
-                ? 'border-amber-800 bg-amber-400 text-white shadow-md'
-                : 'border-amber-200 bg-white text-stone-500 hover:border-amber-400 hover:text-stone-700'
+                ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/25'
+                : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground'
             )}
           >
             Tất cả
@@ -172,10 +173,10 @@ const CreateOrderPage = () => {
               key={id}
               onClick={() => setCategoryFilter(id)}
               className={cn(
-                'rounded-full border cursor-pointer px-4 py-1.5 text-xs font-bold transition-all',
+                'rounded-full border cursor-pointer px-4.5 py-1.5 text-xs font-bold transition-all duration-300',
                 categoryFilter === id
-                  ? 'border-amber-800 bg-amber-400 text-white shadow-md'
-                  : 'border-amber-200 bg-white text-stone-500 hover:border-amber-400 hover:text-stone-700'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/25'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground'
               )}
             >
               {name}
@@ -185,24 +186,26 @@ const CreateOrderPage = () => {
       </div>
 
       {/* ── DANH SÁCH MÓN ĂN ── */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 sm:p-8">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-32">
-            <Loader2 className="size-10 animate-spin text-stone-300" />
-            <p className="text-sm font-semibold text-stone-400">Đang chuẩn bị thực đơn...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-36">
+            <Loader2 className="size-10 animate-spin text-primary/60" />
+            <p className="text-sm font-semibold text-muted-foreground">Đang chuẩn bị thực đơn...</p>
           </div>
         ) : groupedProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-32 text-stone-400">
-            <UtensilsCrossed className="size-12 opacity-20" />
-            <p className="text-sm font-medium">Rất tiếc, không tìm thấy món bạn cần.</p>
+          <div className="flex flex-col items-center justify-center gap-4 py-36 text-muted-foreground/60">
+            <UtensilsCrossed className="size-12 opacity-30" />
+            <p className="text-sm font-semibold">Rất tiếc, không tìm thấy món bạn cần.</p>
           </div>
         ) : (
           <div className="space-y-12">
             {groupedProducts.map((group) => (
               <div key={group.name} className="space-y-6">
-                <h2 className="text-2xl font-black text-stone-900 flex items-center gap-3">
-                  {group.name}
-                  <div className="h-1 flex-1 bg-stone-100 rounded-full" />
+                <h2 className="text-xl font-extrabold text-foreground flex items-center gap-3">
+                  <span className="relative pl-3.5 before:absolute before:left-0 before:top-1 before:h-5 before:w-1.5 before:rounded-full before:bg-primary">
+                    {group.name}
+                  </span>
+                  <div className="h-px flex-1 bg-border/80" />
                 </h2>
                 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
@@ -237,53 +240,54 @@ function ProductCard({
   onAdd: () => void;
 }) {
   return (
-    <div className="group relative flex h-44 overflow-hidden rounded-3xl border border-stone-100 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-stone-200/50 hover:border-stone-200 active:scale-[0.98]">
+    <div className="group relative flex h-44 overflow-hidden rounded-2xl border border-border/80 bg-card p-4.5 shadow-sm transition-all duration-300 hover:shadow-lg hover:shadow-black/[0.02] hover:-translate-y-0.5 hover:border-primary/20 active:scale-[0.99]">
       
       {/* ── Thông tin món (Bên trái) ── */}
-      <div className="flex flex-1 flex-col justify-between py-1 pr-4">
-        <div className="space-y-2">
-          <h3 className="line-clamp-2 text-base font-bold leading-tight text-stone-900 group-hover:text-amber-600 transition-colors">
+      <div className="flex flex-1 flex-col justify-between py-0.5 pr-4">
+        <div className="space-y-1.5">
+          <h3 className="line-clamp-2 text-sm font-extrabold leading-snug text-foreground group-hover:text-primary transition-colors duration-300">
             {p.productName}
           </h3>
-          <p className="line-clamp-2 text-[11px] leading-relaxed text-stone-500 font-medium italic">
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/80 font-medium">
             {p.description || `Đơn vị: ${p.unitName} - Sản phẩm chất lượng cao cho nhà hàng.`}
           </p>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-lg font-black text-stone-900">
+          <span className="text-base font-extrabold text-foreground">
             {formatCurrencyVND(p.price)}
           </span>
         </div>
       </div>
 
       {/* ── Hình ảnh (Bên phải) ── */}
-      <div className="relative aspect-square w-32 overflow-hidden rounded-2xl bg-stone-100">
+      <div className="relative aspect-square w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
         {p.imageUrl ? (
           <img
-            src={p.imageUrl}
+            src={resolveImageUrl(p.imageUrl)}
             alt={p.productName}
-            className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
+            className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
             loading="lazy"
+            onError={createImageFallback(p.productName)}
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-stone-300">
-            <UtensilsCrossed className="size-8 opacity-40" />
+          <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground/45">
+            <UtensilsCrossed className="size-7 opacity-40" />
           </div>
         )}
 
         {/* Cắt góc cho nút Add */}
         <div className="absolute -bottom-1 -right-1 flex items-end justify-end">
-          <div className="relative flex h-14 w-14 items-end justify-end rounded-tl-[2rem] bg-white p-1.5 shadow-[-4px_-4px_10px_rgba(0,0,0,0.02)]">
+          <div className="relative flex h-14 w-14 items-end justify-end rounded-tl-[2rem] bg-card p-1 shadow-[-4px_-4px_10px_rgba(0,0,0,0.015)]">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onAdd();
               }}
-              className="flex size-10 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-200 transition-all hover:bg-amber-600 hover:scale-105 active:scale-95"
+              className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md shadow-primary/20 transition-all duration-300 hover:bg-primary/90 hover:scale-105 active:scale-95 cursor-pointer"
               aria-label="Thêm vào giỏ"
             >
-              <Plus className="size-5 stroke-[3]" />
+              <Plus className="size-4.5 stroke-[3.5]" />
             </button>
           </div>
         </div>

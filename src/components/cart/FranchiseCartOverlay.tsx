@@ -18,6 +18,7 @@ import http from '@/lib/axios';
 import CartDrawer from '@/components/cart/CartDrawer';
 import FloatingCart from '@/components/cart/FloatingCart';
 import { cn } from '@/lib/utils';
+import { createImageFallback, resolveImageUrl } from '@/utils/image';
 
 type Step = 'REVIEW' | 'DATE';
 
@@ -175,24 +176,24 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                     return (
                       <li
                         key={i.productId}
-                        className="flex items-center gap-3 rounded-xl border border-amber-100/70 bg-white p-3"
+                        className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xs"
                       >
-                        <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-amber-50">
+                        <div className="size-14 shrink-0 overflow-hidden rounded-lg bg-muted">
                           {i.imageUrl ? (
-                            <img src={i.imageUrl} alt="" className="size-full object-cover" />
+                            <img src={resolveImageUrl(i.imageUrl)} alt="" className="size-full object-cover" onError={createImageFallback(i.name)} />
                           ) : (
-                            <div className="flex size-full items-center justify-center text-[10px] text-amber-400">
+                            <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground/50">
                               IMG
                             </div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-amber-950">{i.name}</p>
-                          <p className="mt-0.5 text-xs text-amber-700/50">
+                          <p className="truncate text-sm font-semibold text-foreground">{i.name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {formatCurrencyVND(safeUnit)}
-                            {i.unitName ? <span className="text-amber-700/50"> · {i.unitName}</span> : null}
+                            {i.unitName ? <span className="text-muted-foreground/60"> · {i.unitName}</span> : null}
                             {i.orderMultiplier && i.orderMultiplier > 1 ? (
-                              <span className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                              <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                                 Bội số: {i.orderMultiplier}
                               </span>
                             ) : null}
@@ -210,12 +211,12 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                               }
                               updateQuantity({ productId: i.productId, quantity: nextQty });
                             }}
-                            className="flex size-8 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-50"
+                            className="flex size-8 items-center justify-center rounded-lg border border-border bg-card text-foreground transition hover:bg-secondary cursor-pointer"
                             aria-label="Giảm số lượng"
                           >
                             <Minus className="size-3" strokeWidth={2.5} />
                           </button>
-                          <span className="min-w-[1.75rem] text-center text-sm font-semibold text-amber-900 tabular-nums">
+                          <span className="min-w-[1.75rem] text-center text-sm font-semibold text-foreground tabular-nums">
                             {i.quantity}
                           </span>
                           <button
@@ -224,7 +225,7 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                               const multiplier = i.orderMultiplier || 1;
                               updateQuantity({ productId: i.productId, quantity: i.quantity + multiplier });
                             }}
-                            className="flex size-8 items-center justify-center rounded-lg border border-orange-300 bg-orange-500 text-white shadow-sm transition hover:bg-orange-600"
+                            className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90 cursor-pointer"
                             aria-label="Tăng số lượng"
                           >
                             <Plus className="size-3" strokeWidth={2.5} />
@@ -232,7 +233,7 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                           <button
                             type="button"
                             onClick={() => removeItem({ productId: i.productId })}
-                            className="ml-1 flex size-7 items-center justify-center rounded-lg text-amber-300 transition hover:bg-amber-50 hover:text-amber-500"
+                            className="ml-1 flex size-7 items-center justify-center rounded-lg text-muted-foreground/60 transition hover:bg-secondary hover:text-destructive cursor-pointer"
                             aria-label="Xóa"
                             title="Xóa"
                           >
@@ -246,19 +247,19 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
               )}
             </div>
 
-            <div className="mt-auto flex shrink-0 flex-col border-t border-amber-100 bg-white px-5 pb-6 pt-4">
+            <div className="mt-auto flex shrink-0 flex-col border-t border-border bg-card px-5 pb-6 pt-4">
               <div className="space-y-1.5 text-sm">
-                <div className="flex items-center justify-between text-amber-700/60">
+                <div className="flex items-center justify-between text-muted-foreground">
                   <span>Tạm tính</span>
-                  <span className="tabular-nums text-amber-900">{formatCurrencyVND(totalAmount)}</span>
+                  <span className="tabular-nums text-foreground font-semibold">{formatCurrencyVND(totalAmount)}</span>
                 </div>
-                <div className="flex items-center justify-between text-amber-700/60">
+                <div className="flex items-center justify-between text-muted-foreground">
                   <span>Thuế</span>
-                  <span className="tabular-nums text-amber-900">{formatCurrencyVND(0)}</span>
+                  <span className="tabular-nums text-foreground font-semibold">{formatCurrencyVND(0)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-amber-100 pt-2 text-base font-bold">
-                  <span className="text-amber-950">Tổng cộng</span>
-                  <span className="tabular-nums text-amber-950">{formatCurrencyVND(totalAmount)}</span>
+                <div className="flex items-center justify-between border-t border-border pt-2 text-base font-extrabold">
+                  <span className="text-foreground">Tổng cộng</span>
+                  <span className="tabular-nums text-primary font-extrabold">{formatCurrencyVND(totalAmount)}</span>
                 </div>
               </div>
 
@@ -268,7 +269,7 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                   disabled={items.length === 0}
                   onClick={() => { clear(); toast.success('Đã xóa giỏ hàng'); }}
                   className={cn(
-                    'text-xs text-amber-600/50 underline-offset-2 hover:text-amber-700 hover:underline',
+                    'text-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline cursor-pointer',
                     'disabled:pointer-events-none disabled:opacity-40'
                   )}
                 >
@@ -281,8 +282,8 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                 disabled={!canProceed}
                 onClick={() => setStep('DATE')}
                 className={cn(
-                  'mt-3 h-11 w-full rounded-xl bg-amber-500 text-sm font-semibold text-white',
-                  'transition hover:bg-amber-600 disabled:opacity-40'
+                  'mt-3 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground cursor-pointer',
+                  'transition hover:bg-primary/90 disabled:opacity-40'
                 )}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -295,12 +296,12 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
         )}
 
         {step === 'DATE' && (
-          <div className="flex h-full min-h-0 flex-col bg-white">
+          <div className="flex h-full min-h-0 flex-col bg-card">
             <div className="min-h-0 grow overflow-y-auto overflow-x-hidden overscroll-y-contain px-5 pb-3 pt-5 [scrollbar-gutter:stable]">
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-semibold text-amber-950">Ngày giao dự kiến</p>
-                  <p className="mt-1 text-xs text-amber-700/55">
+                  <p className="text-sm font-semibold text-foreground">Ngày giao dự kiến</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Bếp trung tâm sẽ xử lý theo ngày giao bạn chọn.
                   </p>
                   <div className="relative mt-3">
@@ -311,14 +312,13 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                       onChange={(e) => setDeliveryDate(e.target.value)}
                       onFocus={openDatePicker}
                       className={cn(
-                        'h-11 w-full cursor-pointer rounded-lg border border-amber-200 bg-white px-3 pr-11 text-sm text-amber-950',
-                        'focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200/60'
+                        'h-11 w-full cursor-pointer rounded-lg border border-border bg-card px-3 pr-11 text-sm text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium',
                       )}
                     />
                     <button
                       type="button"
                       onClick={openDatePicker}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-amber-400 transition hover:bg-amber-50 hover:text-amber-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground/60 transition hover:bg-secondary hover:text-primary cursor-pointer"
                       aria-label="Mở lịch chọn ngày"
                     >
                       <CalendarDays className="size-5" />
@@ -326,23 +326,23 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3 text-xs text-amber-700/70">
-                  <div className="flex justify-between">
+                <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3 text-xs text-muted-foreground">
+                  <div className="flex justify-between items-center">
                     <span>Tổng cộng</span>
-                    <span className="font-semibold text-amber-900">{formatCurrencyVND(totalAmount)}</span>
+                    <span className="font-extrabold text-foreground text-sm">{formatCurrencyVND(totalAmount)}</span>
                   </div>
-                  <p className="mt-1 text-[11px] text-amber-700/50">
+                  <p className="mt-1 text-[11px] text-muted-foreground/80">
                     {items.length} món · {totalQuantity} đơn vị
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-auto flex shrink-0 flex-col space-y-2.5 border-t border-amber-100 bg-white px-5 pb-6 pt-4">
+            <div className="mt-auto flex shrink-0 flex-col space-y-2.5 border-t border-border bg-card px-5 pb-6 pt-4">
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 w-full rounded-xl border-amber-200 bg-white text-sm font-medium text-amber-700 hover:bg-amber-50"
+                className="h-10 w-full rounded-xl border-border bg-card text-sm font-medium text-muted-foreground hover:bg-secondary cursor-pointer"
                 onClick={() => setStep('REVIEW')}
                 disabled={submitting}
               >
@@ -353,8 +353,8 @@ export default function FranchiseCartOverlay({ children }: { children: React.Rea
                 onClick={submitOrder}
                 disabled={submitting || items.length === 0}
                 className={cn(
-                  'h-11 w-full rounded-xl bg-amber-500 text-sm font-semibold text-white',
-                  'hover:bg-amber-600 disabled:opacity-40'
+                  'h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground cursor-pointer',
+                  'hover:bg-primary/90 disabled:opacity-40 shadow-md shadow-primary/10'
                 )}
               >
                 <span className="flex items-center justify-center gap-2">

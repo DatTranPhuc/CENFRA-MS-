@@ -458,57 +458,57 @@ const OrderTrackingPage = () => {
   return (
     <div className="h-full w-full space-y-5">
       {/* ── Header Card (giống Supply — Kế hoạch phân phối) ── */}
-      <Card className="overflow-hidden border-amber-200/60 bg-white shadow-md">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-5">
+      <Card className="overflow-hidden border-border bg-card shadow-sm">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 border-b border-border bg-gradient-to-r from-secondary/50 to-secondary/10 px-6 py-5">
           <div className="flex min-w-0 flex-col gap-1">
-            <CardTitle className="flex items-center gap-2 text-xl font-bold text-amber-900">
-              <LayoutGrid className="size-6 shrink-0 text-amber-500" />
+            <CardTitle className="flex items-center gap-2 text-lg font-extrabold text-foreground">
+              <LayoutGrid className="size-5 shrink-0 text-primary" />
               Quản lý đơn hàng
             </CardTitle>
-            <CardDescription className="text-xs font-medium text-amber-700/80">
+            <CardDescription className="text-xs font-semibold text-muted-foreground">
               Đặt và theo dõi đơn hàng từ cửa hàng tới bếp trung tâm.
             </CardDescription>
           </div>
           <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto md:flex-nowrap md:gap-4">
-            <div className="flex min-w-[5.5rem] flex-col items-center rounded-xl border border-amber-100 bg-white/70 px-4 py-2.5 shadow-sm md:px-5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Tổng đơn</span>
-              <span className="mt-0.5 text-2xl font-bold text-amber-900">{stats.total}</span>
+            <div className="flex min-w-[6rem] flex-col items-center rounded-xl border border-border bg-card px-4 py-2 shadow-sm md:px-5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tổng đơn</span>
+              <span className="mt-0.5 text-xl font-extrabold text-foreground">{stats.total}</span>
             </div>
-            <div className="flex min-w-[5.5rem] flex-col items-center rounded-xl border border-yellow-100 bg-white/70 px-4 py-2.5 shadow-sm md:px-5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-yellow-600">Chờ duyệt</span>
-              <span className="mt-0.5 text-2xl font-bold text-yellow-700">{stats.pending}</span>
+            <div className="flex min-w-[6rem] flex-col items-center rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 shadow-sm md:px-5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Chờ duyệt</span>
+              <span className="mt-0.5 text-xl font-extrabold text-primary">{stats.pending}</span>
             </div>
-            <div className="flex min-w-[5.5rem] flex-col items-center rounded-xl border border-emerald-100 bg-white/70 px-4 py-2.5 shadow-sm md:px-5">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Đang giao</span>
-              <span className="mt-0.5 text-2xl font-bold text-emerald-700">{stats.inTransit}</span>
+            <div className="flex min-w-[6rem] flex-col items-center rounded-xl border border-blue-200 bg-blue-50/50 px-4 py-2 shadow-sm md:px-5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Đang giao</span>
+              <span className="mt-0.5 text-xl font-extrabold text-blue-700">{stats.inTransit}</span>
             </div>
           </div>
         </CardHeader>
       </Card>
 
       {/* ── Toolbar (giống Supply) ── */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-100 bg-white px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm shadow-black/[0.01]">
         <div className="relative min-w-0 flex-1 basis-[min(100%,18rem)]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
           <input
             type="text"
             placeholder="Tìm theo mã đơn, ngày giao hoặc ghi chú..."
             value={search}
             onChange={handleSearch}
-            className="h-9 w-full rounded-md border border-amber-200 bg-amber-50/40 pl-9 pr-3 text-xs text-stone-800 placeholder:text-stone-400 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60"
+            className="h-9 w-full rounded-lg border border-border bg-background/50 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/80 focus:ring-4 focus:ring-primary/10 transition-all"
           />
         </div>
 
-        <div className="relative flex h-9 flex-none items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50/50 px-3">
-          <SlidersHorizontal className="size-3.5 shrink-0 text-amber-500" />
-          <span className="whitespace-nowrap text-[11px] font-medium text-amber-700">Bộ lọc:</span>
+        <div className="relative flex h-9 flex-none items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-3">
+          <SlidersHorizontal className="size-3.5 shrink-0 text-primary" />
+          <span className="whitespace-nowrap text-[11px] font-bold text-muted-foreground">Bộ lọc:</span>
           <select
             value={statusFilter === 'ALL' ? '' : statusFilter}
             onChange={(e) => {
               const v = e.target.value;
               handleFilterChange(v === '' ? 'ALL' : (v as FilterStatus));
             }}
-            className="max-w-[10rem] cursor-pointer appearance-none bg-transparent pr-4 text-xs font-semibold text-amber-900 outline-none"
+            className="max-w-[10rem] cursor-pointer appearance-none bg-transparent pr-4 text-xs font-bold text-foreground outline-none"
           >
             <option value="">Tất cả</option>
             {FILTER_OPTIONS.filter((o) => o !== 'ALL').map((opt) => (
@@ -517,7 +517,7 @@ const OrderTrackingPage = () => {
               </option>
             ))}
           </select>
-          <Filter className="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-amber-400" />
+          <Filter className="pointer-events-none absolute right-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground/50" />
         </div>
 
         <Button
@@ -526,7 +526,7 @@ const OrderTrackingPage = () => {
           size="sm"
           onClick={() => void fetchData()}
           disabled={loading}
-          className="h-9 flex-none gap-1.5 border-amber-200 text-xs text-amber-700 hover:bg-amber-50"
+          className="h-9 flex-none gap-1.5 border-border text-xs text-muted-foreground hover:bg-secondary transition-colors cursor-pointer"
         >
           <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
           Làm mới
@@ -534,12 +534,12 @@ const OrderTrackingPage = () => {
 
         <div className="hidden min-h-[1px] flex-1 sm:block" />
 
-        <div className="hidden h-6 w-px shrink-0 bg-amber-200 sm:block" />
+        <div className="hidden h-6 w-px shrink-0 bg-border sm:block" />
 
         <Button
           asChild
           size="sm"
-          className="h-9 flex-none gap-1.5 rounded-lg bg-amber-500 px-4 text-xs text-white shadow-sm transition-all hover:bg-amber-600 active:scale-[0.98]"
+          className="h-9 flex-none gap-1.5 rounded-lg bg-primary px-4 text-xs text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98]"
         >
           <Link to="/franchise-store/create-order">
             <Plus className="size-3.5" />
@@ -549,20 +549,20 @@ const OrderTrackingPage = () => {
       </div>
 
       {/* ── Bảng đơn ── */}
-      <Card className="border-amber-200/60 bg-white shadow-md">
+      <Card className="border-border bg-card shadow-sm">
         <CardContent className="p-6">
-          <Card className="overflow-hidden border-amber-100 bg-white shadow-sm">
-              <CardHeader className="border-b border-amber-50 bg-gradient-to-r from-amber-50/80 to-orange-50/80 py-3 px-4">
-                <CardTitle className="flex items-center justify-between text-sm font-bold text-amber-900">
+          <Card className="overflow-hidden border-border bg-card shadow-xs">
+              <CardHeader className="border-b border-border bg-gradient-to-r from-secondary/50 to-secondary/20 py-3 px-4">
+                <CardTitle className="flex items-center justify-between text-sm font-extrabold text-foreground">
                   <span className="flex items-center gap-2">
-                    <Receipt className="size-4 text-amber-500" />
+                    <Receipt className="size-4 text-primary" />
                     Danh sách đơn đặt hàng
                   </span>
-                  <span className="text-[11px] font-normal text-amber-700/70">
+                  <span className="text-[11px] font-medium text-muted-foreground">
                     {loading ? '…' : `${filteredOrders.length} đơn`}
                   </span>
                 </CardTitle>
-                <CardDescription className="text-[11px] text-amber-700/80">
+                <CardDescription className="text-[11px] text-muted-foreground/80">
                   Theo dõi trạng thái duyệt và giao hàng.
                 </CardDescription>
               </CardHeader>
@@ -570,31 +570,31 @@ const OrderTrackingPage = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-amber-50 bg-amber-50/60 text-left text-[11px] text-amber-800 uppercase tracking-wide">
-                        <th className="px-4 py-3 font-bold">Mã đơn</th>
-                        <th className="px-4 py-3 font-bold">Ngày đặt</th>
-                        <th className="px-4 py-3 font-bold text-center">Ngày giao</th>
-                        <th className="px-4 py-3 font-bold text-center">Trạng thái</th>
-                        <th className="px-4 py-3 font-bold text-right">Thao tác</th>
+                      <tr className="border-b border-border bg-secondary/30 text-left text-[11px] text-muted-foreground font-bold uppercase tracking-wide">
+                        <th className="px-4 py-3">Mã đơn</th>
+                        <th className="px-4 py-3">Ngày đặt</th>
+                        <th className="px-4 py-3 text-center">Ngày giao</th>
+                        <th className="px-4 py-3 text-center">Trạng thái</th>
+                        <th className="px-4 py-3 text-right">Thao tác</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-amber-50/60">
+                    <tbody className="divide-y divide-border/60">
                       {loading ? (
                         <tr>
                           <td colSpan={5} className="py-16 text-center">
-                            <Loader2 className="mx-auto size-8 animate-spin text-amber-500" />
-                            <p className="mt-3 text-sm font-medium text-amber-700">Đang tải đơn hàng...</p>
+                            <Loader2 className="mx-auto size-8 animate-spin text-primary" />
+                            <p className="mt-3 text-sm font-semibold text-muted-foreground">Đang tải đơn hàng...</p>
                           </td>
                         </tr>
                       ) : paginatedOrders.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="py-16 text-center">
                             <div className="flex flex-col items-center gap-3">
-                              <div className="flex size-12 items-center justify-center rounded-full bg-amber-50">
-                                <Package className="size-6 text-amber-200" />
+                              <div className="flex size-12 items-center justify-center rounded-full bg-secondary">
+                                <Package className="size-6 text-muted-foreground/40" />
                               </div>
-                              <p className="text-sm font-medium text-stone-400">Không tìm thấy đơn đặt hàng nào.</p>
-                              <p className="text-xs text-stone-300">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                              <p className="text-sm font-semibold text-muted-foreground">Không tìm thấy đơn đặt hàng nào.</p>
+                              <p className="text-xs text-muted-foreground/60">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                             </div>
                           </td>
                         </tr>
@@ -603,25 +603,25 @@ const OrderTrackingPage = () => {
                           const normStatus = normalizeOrderStatus(o.status);
                           const isInTransit = normStatus === 'IN_TRANSIT';
                           return (
-                            <tr
+                             <tr
                               key={o.orderId}
                               className={cn(
-                                'group cursor-pointer hover:bg-amber-50/50 transition-colors',
+                                'group cursor-pointer hover:bg-secondary/40 transition-colors',
                                 isInTransit && 'bg-blue-50/20 hover:bg-blue-50/40'
                               )}
                               onClick={() => handleOpenOrderDetail(o.orderId)}
                             >
                               <td className="px-4 py-3.5">
-                                <p className="font-bold text-stone-900">{o.orderCode}</p>
-                                <p className="text-[10px] text-stone-400">#{o.orderId}</p>
+                                <p className="font-bold text-foreground">{o.orderCode}</p>
+                                <p className="text-[10px] text-muted-foreground">#{o.orderId}</p>
                               </td>
-                              <td className="px-4 py-3.5 text-stone-500">
+                              <td className="px-4 py-3.5 text-muted-foreground font-medium">
                                 {new Date(o.orderDate).toLocaleDateString('vi-VN')}
                               </td>
-                              <td className="px-4 py-3.5 text-center text-stone-700 font-medium">
+                              <td className="px-4 py-3.5 text-center text-foreground font-semibold">
                                 {o.deliveryDate
                                   ? new Date(o.deliveryDate).toLocaleDateString('vi-VN')
-                                  : <span className="text-stone-300">—</span>}
+                                  : <span className="text-muted-foreground/30">—</span>}
                               </td>
                               <td className="px-4 py-3.5 text-center">
                                 <StatusBadge status={normStatus} />
@@ -646,15 +646,13 @@ const OrderTrackingPage = () => {
                                     </button>
                                   )}
 
-                                  
-
                                   {/* Report button — */}
                                   {(normStatus === 'DONE') && (
                                     <button
                                       type="button"
                                       title="Báo cáo sự cố"
                                       onClick={() => handleReportOrder(o.orderId)}
-                                      className="flex h-8 items-center gap-1.5 rounded-lg border border-orange-200 bg-white px-2.5 text-[11px] font-bold text-orange-600 shadow-sm transition hover:bg-orange-50 hover:border-orange-300"
+                                      className="flex h-8 items-center gap-1.5 rounded-lg border border-orange-200 bg-white px-2.5 text-[11px] font-bold text-orange-600 shadow-sm transition hover:bg-orange-50 hover:border-orange-300 cursor-pointer"
                                     >
                                       <AlertTriangle className="size-3.5" />
                                       Báo sự cố
@@ -667,10 +665,10 @@ const OrderTrackingPage = () => {
                                     onClick={() => handleCancelOrder(o.orderId)}
                                     disabled={normStatus !== 'PENDING'}
                                     className={cn(
-                                      'flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-bold shadow-sm transition',
+                                      'flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-bold shadow-sm transition cursor-pointer',
                                       normStatus === 'PENDING'
                                         ? 'border-red-200 bg-white text-red-500 hover:bg-red-50 hover:border-red-300'
-                                        : 'border-stone-100 bg-stone-50 text-stone-300 cursor-not-allowed'
+                                        : 'border-border bg-secondary/50 text-muted-foreground/40 cursor-not-allowed'
                                     )}
                                   >
                                     <XCircle className="size-3.5" />
@@ -688,9 +686,9 @@ const OrderTrackingPage = () => {
 
                 {/* Pagination */}
                 {!loading && filteredOrders.length > pageSize && (
-                  <div className="flex items-center justify-between border-t border-amber-100 bg-amber-50/20 px-4 py-3">
-                    <p className="text-[11px] text-stone-500">
-                      <span className="font-semibold text-stone-700">
+                  <div className="flex items-center justify-between border-t border-border bg-secondary/10 px-4 py-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      <span>
                         {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredOrders.length)}
                       </span>{' '}
                       / {filteredOrders.length} đơn
@@ -700,7 +698,7 @@ const OrderTrackingPage = () => {
                         type="button"
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="flex size-7 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-40 transition"
+                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary disabled:opacity-40 transition cursor-pointer"
                       >
                         <ChevronLeft className="size-4" />
                       </button>
@@ -713,10 +711,10 @@ const OrderTrackingPage = () => {
                             type="button"
                             onClick={() => setPage(p)}
                             className={cn(
-                              'flex size-7 items-center justify-center rounded-lg border text-xs font-bold transition',
+                              'flex size-7 items-center justify-center rounded-lg border text-xs font-bold transition cursor-pointer',
                               p === page
-                                ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
-                                : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50'
+                                ? 'border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                                : 'border-border bg-card text-muted-foreground hover:bg-secondary'
                             )}
                           >
                             {p}
@@ -727,7 +725,7 @@ const OrderTrackingPage = () => {
                         type="button"
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
-                        className="flex size-7 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-40 transition"
+                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary disabled:opacity-40 transition cursor-pointer"
                       >
                         <ChevronRight className="size-4" />
                       </button>
@@ -832,12 +830,12 @@ const OrderTrackingPage = () => {
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2 border-t border-stone-100 bg-stone-50 px-6 py-4">
+          <DialogFooter className="flex gap-2 border-t border-border bg-secondary/15 px-6 py-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpenReceiveDialog(false)}
-              className="flex-1 text-xs font-bold border-stone-200 text-stone-600 hover:bg-stone-100"
+              className="flex-1 text-xs font-bold border-border text-muted-foreground hover:bg-secondary cursor-pointer"
             >
               Hủy bỏ
             </Button>
@@ -845,7 +843,7 @@ const OrderTrackingPage = () => {
               type="button"
               onClick={handleConfirmReceive}
               disabled={!selectedReceiveOrderId || isReceiving}
-              className="flex-1 bg-green-600 text-xs font-bold text-white hover:bg-green-700 shadow-sm transition-all"
+              className="flex-1 bg-green-600 text-xs font-bold text-white hover:bg-green-700 shadow-sm transition-all cursor-pointer"
             >
               {isReceiving ? (
                 <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Đang xử lý...</>
@@ -865,19 +863,19 @@ const OrderTrackingPage = () => {
           if (!open) setOrderDetail(null);
         }}
       >
-        <DialogContent className="w-[min(95vw,680px)] max-w-none overflow-hidden rounded-2xl border border-amber-100 p-0 shadow-2xl">
+        <DialogContent className="w-[min(95vw,680px)] max-w-none overflow-hidden rounded-2xl border border-border p-0 shadow-2xl">
           {/* Header */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 px-6 py-5">
+          <div className="bg-gradient-to-r from-secondary/50 to-secondary/20 border-b border-border px-6 py-5">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-bold text-amber-900">
-                <div className="flex size-7 items-center justify-center rounded-lg bg-amber-500 text-white">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Receipt className="size-4" />
                 </div>
                 Chi tiết đơn hàng
               </DialogTitle>
               {orderDetail && (
-                <p className="text-xs text-stone-500 mt-0.5 ml-9">
-                  Mã đơn: <span className="font-bold text-stone-700">{orderDetail.orderCode}</span>
+                <p className="text-xs text-muted-foreground mt-0.5 ml-9">
+                  Mã đơn: <span className="font-bold text-foreground">{orderDetail.orderCode}</span>
                   {' · '}
                   <StatusBadge status={normalizeOrderStatus(orderDetail.status)} className="text-[10px] py-0" />
                 </p>
@@ -889,8 +887,8 @@ const OrderTrackingPage = () => {
           <div className="px-6 py-5 space-y-5 max-h-[60dvh] overflow-y-auto">
             {isLoadingDetail && (
               <div className="flex flex-col items-center justify-center gap-3 py-14">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-                <span className="text-sm font-medium text-amber-700">Đang tải chi tiết đơn hàng...</span>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-semibold text-muted-foreground">Đang tải chi tiết đơn hàng...</span>
               </div>
             )}
 
@@ -904,42 +902,42 @@ const OrderTrackingPage = () => {
                     { label: 'Cửa hàng', value: orderDetail.storeName || '—' },
                     { label: 'Số mặt hàng', value: `${orderDetail.details?.length ?? 0} món` },
                   ].map((info) => (
-                    <div key={info.label} className="rounded-xl border border-amber-100 bg-amber-50/40 px-4 py-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">{info.label}</p>
-                      <p className="mt-1 text-sm font-bold text-stone-900">{info.value}</p>
+                    <div key={info.label} className="rounded-xl border border-border bg-secondary/35 px-4 py-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-primary">{info.label}</p>
+                      <p className="mt-1 text-sm font-bold text-foreground">{info.value}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Items */}
                 <div>
-                  <p className="mb-3 text-sm font-bold text-stone-800">Danh sách mặt hàng</p>
-                  <div className="overflow-hidden rounded-xl border border-amber-100">
+                  <p className="mb-3 text-sm font-bold text-foreground">Danh sách mặt hàng</p>
+                  <div className="overflow-hidden rounded-xl border border-border">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-amber-50 text-left text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                        <tr className="bg-secondary/40 border-b border-border text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                           <th className="px-4 py-3">#</th>
                           <th className="px-4 py-3">Sản phẩm</th>
                           <th className="px-4 py-3 text-center">SL</th>
                           <th className="px-4 py-3">Đơn vị</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-amber-50">
+                      <tbody className="divide-y divide-border/60">
                         {orderDetail.details?.map((d, idx) => (
-                          <tr key={d.orderDetailId} className="hover:bg-amber-50/40 transition-colors">
-                            <td className="px-4 py-3 text-xs text-stone-400 font-medium">{idx + 1}</td>
-                            <td className="px-4 py-3 font-semibold text-stone-900">{d.productName}</td>
+                          <tr key={d.orderDetailId} className="hover:bg-secondary/20 transition-colors">
+                            <td className="px-4 py-3 text-xs text-muted-foreground/50 font-medium">{idx + 1}</td>
+                            <td className="px-4 py-3 font-semibold text-foreground">{d.productName}</td>
                             <td className="px-4 py-3 text-center">
-                              <span className="inline-flex items-center justify-center rounded-full bg-amber-100 px-3 py-0.5 text-sm font-bold text-amber-800 min-w-[2rem]">
+                              <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary min-w-[2rem]">
                                 {d.quantity}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-stone-500">{d.unitName ?? d.unit ?? '—'}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{d.unitName ?? d.unit ?? '—'}</td>
                           </tr>
                         ))}
                         {!orderDetail.details?.length && (
                           <tr>
-                            <td colSpan={4} className="px-4 py-10 text-center text-sm text-stone-400">
+                            <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
                               Đơn hàng chưa có mặt hàng chi tiết.
                             </td>
                           </tr>
@@ -953,7 +951,7 @@ const OrderTrackingPage = () => {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-amber-100 bg-amber-50/30 px-6 py-4 flex justify-end gap-2">
+          <div className="border-t border-border bg-secondary/10 px-6 py-4 flex justify-end gap-2">
             {orderDetail && (normalizeOrderStatus(orderDetail.status) === 'IN_TRANSIT' || normalizeOrderStatus(orderDetail.status) === 'DONE') && (
               <Button
                 type="button"
@@ -962,7 +960,7 @@ const OrderTrackingPage = () => {
                   setOpenDetailDialog(false);
                   handleReportOrder(orderDetail.orderId);
                 }}
-                className="h-9 border-orange-200 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+                className="h-9 border-orange-200 text-sm font-semibold text-orange-600 hover:bg-orange-50 cursor-pointer"
               >
                 <AlertTriangle className="mr-1.5 size-4" />
                 Báo sự cố / Từ chối nhận
@@ -976,7 +974,7 @@ const OrderTrackingPage = () => {
                   setSelectedReceiveOrderId(orderDetail!.orderId);
                   setOpenReceiveDialog(true);
                 }}
-                className="h-9 bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
+                className="h-9 bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 cursor-pointer"
               >
                 <Check className="mr-1.5 size-4 stroke-[3]" />
                 Xác nhận đã nhận
@@ -986,7 +984,7 @@ const OrderTrackingPage = () => {
               type="button"
               variant="outline"
               onClick={() => setOpenDetailDialog(false)}
-              className="h-9 border-amber-200 px-5 text-sm font-semibold text-amber-900 hover:bg-amber-50"
+              className="h-9 border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-secondary cursor-pointer"
             >
               Đóng
             </Button>
@@ -1010,14 +1008,14 @@ const OrderTrackingPage = () => {
         }}
       >
         <DialogContent className="min-w-[50vw] max-w-none overflow-hidden rounded-2xl border-0 p-0 shadow-2xl">
-          <div className="bg-gradient-to-r from-orange-500 to-amber-600 px-6 py-5 text-white">
+          <div className="bg-gradient-to-r from-primary to-primary/85 px-6 py-5 text-white">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base font-bold text-white">
                 <AlertTriangle className="size-5" />
                 Từ chối nhận hàng / Báo cáo sự cố
               </DialogTitle>
             </DialogHeader>
-            <p className="mt-1 text-xs text-orange-100 font-medium">
+            <p className="mt-1 text-xs text-white/80 font-medium">
               Vui lòng cung cấp chi tiết sự cố để chúng tôi hỗ trợ bạn tốt nhất.
             </p>
           </div>
@@ -1039,19 +1037,19 @@ const OrderTrackingPage = () => {
                     className={cn(
                       'flex items-center gap-2 rounded-xl border p-2.5 cursor-pointer transition-all',
                       reportReason === item.key
-                        ? 'border-orange-500 bg-orange-50 shadow-sm ring-1 ring-orange-500'
+                        ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary'
                         : 'border-stone-100 bg-stone-50/50 hover:bg-stone-50'
                     )}
                   >
                     <input
                       type="radio"
-                      className="size-3.5 accent-orange-500"
+                      className="size-3.5 accent-primary"
                       name="reportReason"
                       value={item.key}
                       checked={reportReason === item.key}
                       onChange={(e) => setReportReason(e.target.value)}
                     />
-                    <span className={cn('text-[11px] font-bold', reportReason === item.key ? 'text-orange-900' : 'text-stone-600')}>
+                    <span className={cn('text-[11px] font-bold', reportReason === item.key ? 'text-primary' : 'text-stone-600')}>
                       {item.label}
                     </span>
                   </label>
@@ -1062,7 +1060,7 @@ const OrderTrackingPage = () => {
             {/* Dynamic Form Content */}
             {isFetchingReportData ? (
               <div className="flex flex-col items-center justify-center py-6 gap-2">
-                <Loader2 className="size-6 animate-spin text-orange-500" />
+                <Loader2 className="size-6 animate-spin text-primary" />
                 <span className="text-[11px] text-stone-500 line-clamp-1">Đang tải thông tin sản phẩm...</span>
               </div>
             ) : (
@@ -1081,19 +1079,19 @@ const OrderTrackingPage = () => {
                             className={cn(
                               'flex items-center justify-between rounded-xl border p-3 cursor-pointer transition-all',
                               isSelected
-                                ? 'border-orange-500 bg-orange-50/50 shadow-sm'
+                                ? 'border-primary bg-primary/5 shadow-sm'
                                 : 'border-stone-100 bg-stone-50/30 hover:bg-stone-50 hover:border-stone-200'
                             )}
                           >
                             <div className="flex items-center gap-3">
                               <div className={cn(
                                 "flex size-5 items-center justify-center rounded-sm border transition-colors",
-                                isSelected ? "border-orange-500 bg-orange-500 text-white" : "border-stone-300 bg-white"
+                                isSelected ? "border-primary bg-primary text-primary-foreground" : "border-stone-300 bg-white"
                               )}>
                                 {isSelected && <Check className="size-3.5 stroke-[3]" />}
                               </div>
                               <div className="flex flex-col">
-                                <span className={cn('text-[11px] font-bold', isSelected ? 'text-orange-900' : 'text-stone-700')}>{item.productName}</span>
+                                <span className={cn('text-[11px] font-bold', isSelected ? 'text-primary' : 'text-stone-700')}>{item.productName}</span>
                                 <span className="text-[10px] text-stone-500">Đặt: {item.orderedQuantity} {item.unitName}</span>
                               </div>
                             </div>
@@ -1133,7 +1131,7 @@ const OrderTrackingPage = () => {
                                   max={item.orderedQuantity}
                                   value={item.actualQuantity}
                                   onChange={(e) => handleReportItemChange(item.productId, parseInt(e.target.value) || 0)}
-                                  className="w-full h-7 rounded-md border border-stone-200 bg-stone-50/50 text-center font-bold text-orange-600 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                  className="w-full h-7 rounded-md border border-stone-200 bg-stone-50/50 text-center font-bold text-primary focus:outline-none focus:ring-1 focus:ring-primary/45"
                                 />
                               </td>
                               <td className="px-3 py-2 text-center text-stone-400">{item.unitName}</td>
@@ -1168,7 +1166,7 @@ const OrderTrackingPage = () => {
                     value={reportNote}
                     onChange={(e) => setReportNote(e.target.value)}
                     rows={3}
-                    className="flex w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-2.5 text-xs text-stone-800 placeholder:text-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-1 resize-none font-medium"
+                    className="flex w-full rounded-xl border border-stone-200 bg-stone-50/50 px-3 py-2.5 text-xs text-stone-800 placeholder:text-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 resize-none font-medium"
                   />
                 </div>
 
@@ -1187,7 +1185,7 @@ const OrderTrackingPage = () => {
                         </button>
                       </div>
                     ))}
-                    <label className="flex flex-col items-center justify-center size-16 rounded-lg border-2 border-dashed border-stone-200 bg-stone-50 cursor-pointer hover:bg-stone-100 hover:border-orange-300 transition-colors">
+                    <label className="flex flex-col items-center justify-center size-16 rounded-lg border-2 border-dashed border-stone-200 bg-stone-50 cursor-pointer hover:bg-stone-100 hover:border-primary/50 transition-colors">
                       <Upload className="size-4 text-stone-400" />
                       <span className="mt-1 text-[8px] text-stone-500 font-bold text-center px-1">Thêm ảnh</span>
                       <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageChange} />
@@ -1203,7 +1201,7 @@ const OrderTrackingPage = () => {
               type="button"
               variant="outline"
               onClick={() => setOpenReportDialog(false)}
-              className="flex-1 text-xs font-bold border-stone-200 text-stone-600 hover:bg-stone-100"
+              className="flex-1 text-xs font-bold border-stone-200 text-stone-600 hover:bg-stone-100 cursor-pointer"
             >
               Hủy
             </Button>
@@ -1211,7 +1209,7 @@ const OrderTrackingPage = () => {
               type="button"
               onClick={handleConfirmReport}
               disabled={isReporting}
-              className="flex-1 bg-orange-600 text-xs font-bold text-white hover:bg-orange-700 shadow-sm transition-all"
+              className="flex-1 bg-primary text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm transition-all cursor-pointer"
             >
               {isReporting ? (
                 <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Đang xử lý...</>
